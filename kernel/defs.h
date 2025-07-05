@@ -52,6 +52,7 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, int, uint64, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, int, uint64, uint, uint);
+void            itrunc(struct inode*);
 
 // ramdisk.c
 void            ramdiskinit(void);
@@ -61,14 +62,13 @@ void            ramdiskrw(struct buf*);
 // kalloc.c
 void*           kalloc(void);
 void            kfree(void *);
-void            kinit();
+void            kinit(void);
 
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
-void            begin_op(int);
-void            end_op(int);
-void            crash_op(int,int);
+void            begin_op(void);
+void            end_op(void);
 
 // pipe.c
 int             pipealloc(struct file**, struct file**);
@@ -86,16 +86,18 @@ int             cpuid(void);
 void            exit(int);
 int             fork(void);
 int             growproc(int);
+void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
 int             kill(int);
+int             killed(struct proc*);
+void            setkilled(struct proc*);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
 void            procinit(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
-void            setproc(struct proc*);
 void            sleep(void*, struct spinlock*);
 void            userinit(void);
 int             wait(uint64);
@@ -115,7 +117,6 @@ void            initlock(struct spinlock*, char*);
 void            release(struct spinlock*);
 void            push_off(void);
 void            pop_off(void);
-uint64          sys_ntas(void);
 
 // sleeplock.c
 void            acquiresleep(struct sleeplock*);
@@ -133,9 +134,9 @@ int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
 
 // syscall.c
-int             argint(int, int*);
+void            argint(int, int*);
 int             argstr(int, char*, int);
-int             argaddr(int, uint64 *);
+void            argaddr(int, uint64 *);
 int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
@@ -151,22 +152,23 @@ void            usertrapret(void);
 void            uartinit(void);
 void            uartintr(void);
 void            uartputc(int);
+void            uartputc_sync(int);
 int             uartgetc(void);
 
 // vm.c
 void            kvminit(void);
 void            kvminithart(void);
-uint64          kvmpa(uint64);
-void            kvmmap(uint64, uint64, uint64, int);
+void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
 int             mappages(pagetable_t, uint64, uint64, uint64, int);
 pagetable_t     uvmcreate(void);
-void            uvminit(pagetable_t, uchar *, uint);
-uint64          uvmalloc(pagetable_t, uint64, uint64);
+void            uvmfirst(pagetable_t, uchar *, uint);
+uint64          uvmalloc(pagetable_t, uint64, uint64, int);
 uint64          uvmdealloc(pagetable_t, uint64, uint64);
 int             uvmcopy(pagetable_t, pagetable_t, uint64);
 void            uvmfree(pagetable_t, uint64);
 void            uvmunmap(pagetable_t, uint64, uint64, int);
 void            uvmclear(pagetable_t, uint64);
+pte_t *         walk(pagetable_t, uint64, int);
 uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
@@ -179,30 +181,9 @@ int             plic_claim(void);
 void            plic_complete(int);
 
 // virtio_disk.c
-void            virtio_disk_init(int);
-void            virtio_disk_rw(int, struct buf *, int);
-void            virtio_disk_intr(int);
+void            virtio_disk_init(void);
+void            virtio_disk_rw(struct buf *, int);
+void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
-
-// Extra files for allocator lab
-
-
-// buddy.c
-void           bd_init(void*,void*);
-void           bd_free(void*);
-void           *bd_malloc(uint64);
-
-struct list {
-  struct list *next;
-  struct list *prev;
-};
-
-// list.c
-void lst_init(struct list*);
-void lst_remove(struct list*);
-void lst_push(struct list*, void *);
-void *lst_pop(struct list*);
-void lst_print(struct list*);
-int lst_empty(struct list*);
