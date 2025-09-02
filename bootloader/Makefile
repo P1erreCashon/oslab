@@ -7,7 +7,7 @@ CFLAGS = -march=rv64g -mabi=lp64 -static -mcmodel=medany -fno-common -nostdlib -
 CFLAGS += -Icommon -O2 -g
 
 # 通用模块对象文件
-COMMON_OBJS = common/uart.o common/memory.o common/virtio_boot.o
+COMMON_OBJS = common/uart.o common/memory.o common/virtio_boot.o common/elf_loader.o
 
 # 第一阶段构建 (512字节限制) - 只使用汇编
 stage1.bin: boot.S
@@ -48,6 +48,15 @@ bootdisk_stage2.img: stage1.bin stage2.bin test/test_kernel.bin
 	dd if=test/test_kernel.bin of=bootdisk_stage2.img bs=512 seek=64 conv=notrunc
 	@echo "Bootdisk image created: bootdisk_stage2.img"
 
+# Stage 3 磁盘镜像 - 包含真实xv6内核
+bootdisk_stage3.img: stage1.bin stage2.bin ../kernel/kernel ../fs.img
+	dd if=/dev/zero of=bootdisk_stage3.img bs=1M count=64
+	dd if=stage1.bin of=bootdisk_stage3.img bs=512 count=1 conv=notrunc
+	dd if=stage2.bin of=bootdisk_stage3.img bs=512 seek=1 conv=notrunc
+	dd if=../kernel/kernel of=bootdisk_stage3.img bs=512 seek=64 conv=notrunc
+	dd if=../fs.img of=bootdisk_stage3.img bs=512 seek=2048 conv=notrunc
+	@echo "Stage 3 bootdisk image created: bootdisk_stage3.img"
+
 # C文件编译规则
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -62,6 +71,15 @@ test: bootdisk_stage2.img
 	@echo "Use Ctrl+A X to exit QEMU"
 	qemu-system-riscv64 -machine virt -bios none \
 		-drive file=bootdisk_stage2.img,format=raw,if=virtio \
+		-m 128M -nographic
+
+# Stage 3 测试目标
+test-stage3: bootdisk_stage3.img
+	@echo "=== Testing bootloader stage 3 with real xv6 kernel ==="
+	@echo "Expected: bootloader -> xv6 kernel -> shell prompt"
+	@echo "Use Ctrl+A X to exit QEMU"
+	qemu-system-riscv64 -machine virt -bios none \
+		-drive file=bootdisk_stage3.img,format=raw,if=virtio \
 		-m 128M -nographic
 
 # 调试目标

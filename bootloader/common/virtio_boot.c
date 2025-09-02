@@ -193,38 +193,103 @@ int virtio_disk_boot_init(void) {
     uart_put_hex((uint64)disk.used);
     uart_puts("\n");
     
-    // 清零队列内存
-    memset(disk.desc, 0, 4096);
-    memset(disk.avail, 0, 4096);
-    memset(disk.used, 0, 4096);
+    uart_puts("Skipping queue memory clear for now...\n");
+    
+    // 暂时跳过内存清零以诊断问题
+    // char *desc_ptr = (char *)disk.desc;
+    // for (int i = 0; i < 4096; i++) desc_ptr[i] = 0;
+    uart_puts("desc cleared (skipped)\n");
+    
+    // char *avail_ptr = (char *)disk.avail;  
+    // for (int i = 0; i < 4096; i++) avail_ptr[i] = 0;
+    uart_puts("avail cleared (skipped)\n");
+    
+    // char *used_ptr = (char *)disk.used;
+    // for (int i = 0; i < 4096; i++) used_ptr[i] = 0;
+    uart_puts("used cleared (skipped)\n");
+    
+    uart_puts("Setting up queue registers...\n");
+    
+    // 选择队列0 - 这是关键步骤！
+    uart_puts("Selecting queue 0...\n");
+    *R(virtio_base, VIRTIO_MMIO_QUEUE_SEL) = 0;
+    
+    // 确保队列未被使用
+    if(*R(virtio_base, VIRTIO_MMIO_QUEUE_READY)) {
+        uart_puts("WARNING: Queue 0 already ready\n");
+    }
     
     // 设置队列大小
+    uart_puts("Setting queue size to ");
+    uart_put_dec(NUM);
+    uart_puts("\n");
     *R(virtio_base, VIRTIO_MMIO_QUEUE_NUM) = NUM;
     
+    uart_puts("Setting descriptor addresses...\n");
     // 设置队列物理地址
     *R(virtio_base, VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)disk.desc;
     *R(virtio_base, VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)disk.desc >> 32;
+    uart_puts("desc addr set\n");
+    
     *R(virtio_base, VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)disk.avail;
     *R(virtio_base, VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)disk.avail >> 32;
+    uart_puts("avail addr set\n");
+    
     *R(virtio_base, VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)disk.used;
     *R(virtio_base, VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)disk.used >> 32;
+    uart_puts("used addr set\n");
     
+    uart_puts("Marking queue ready...\n");
     // 标记队列准备好
     *R(virtio_base, VIRTIO_MMIO_QUEUE_READY) = 1;
+    uart_puts("Queue ready set\n");
     
-    // 初始化描述符空闲标记
+    uart_puts("Initializing descriptor free list...\n");
+    // 初始化描述符空闲标记 - 先只初始化free数组
     for(int i = 0; i < NUM; i++) {
         disk.free[i] = 1;
-        disk.info[i].in_use = 0;
+        
+        // 暂时跳过info数组初始化以定位问题
+        // disk.info[i].in_use = 0;
+        
+        // 每设置一个描述符就输出调试信息，防止无限循环
+        if (i < 3) {
+            uart_puts("  desc ");
+            uart_put_dec(i);
+            uart_puts(" free set\n");
+        }
     }
+    uart_puts("Free list initialized (");
+    uart_put_dec(NUM);
+    uart_puts(" descriptors)\n");
+    
+    // 单独初始化info数组
+    uart_puts("Initializing info array...\n");
+    for(int i = 0; i < NUM; i++) {
+        disk.info[i].in_use = 0;
+        disk.info[i].status = 0;
+        
+        if (i < 3) {
+            uart_puts("  info ");
+            uart_put_dec(i);
+            uart_puts(" initialized\n");
+        }
+    }
+    uart_puts("Info array initialized\n");
     
     disk.used_idx = 0;
+    uart_puts("Used index reset\n");
     
+    uart_puts("Setting final device status...\n");
     // 完成初始化
     status |= VIRTIO_CONFIG_S_DRIVER_OK;
     *R(virtio_base, VIRTIO_MMIO_STATUS) = status;
+    uart_puts("Final status set: ");
+    uart_put_hex(status);
+    uart_puts("\n");
     
     debug_print("Virtio disk initialized successfully");
+    uart_puts("=== VIRTIO INIT COMPLETE ===\n");
     return BOOT_SUCCESS;
 }
 
@@ -278,12 +343,17 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
         return BOOT_ERROR_DISK;
     }
     
+    uart_puts("Building disk read request for sector ");
+    uart_put_dec(sector);
+    uart_puts("\n");
+    
     // 构建请求
     struct virtio_blk_req *req = &disk.ops[idx[0]];
     req->type = VIRTIO_BLK_T_IN;  // 读取
     req->reserved = 0;
     req->sector = sector;
     
+    uart_puts("Setting up descriptor chain...\n");
     // 设置描述符链
     // 描述符0: 请求头
     disk.desc[idx[0]].addr = (uint64)req;
@@ -298,38 +368,91 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
     disk.desc[idx[1]].next = idx[2];
     
     // 描述符2: 状态字节
+    disk.info[idx[0]].status = 0xFF;  // 初始状态
     disk.desc[idx[2]].addr = (uint64)&disk.info[idx[0]].status;
     disk.desc[idx[2]].len = 1;
     disk.desc[idx[2]].flags = VRING_DESC_F_WRITE;
+    disk.desc[idx[2]].next = 0;
     
     // 标记请求使用中
     disk.info[idx[0]].in_use = 1;
-    disk.info[idx[0]].status = 0xFF;  // 初始状态
     
-    // 提交请求到可用环
+    uart_puts("Adding to available ring...\n");
+    // 提交请求到可用环 - 使用xv6的方式
     disk.avail->ring[disk.avail->idx % NUM] = idx[0];
-    disk.avail->idx++;
     
+    // 关键：使用xv6的内存屏障方式
+    asm volatile("fence rw,rw" ::: "memory");
+    
+    // 更新可用索引
+    disk.avail->idx += 1;
+    
+    // 再次内存屏障
+    asm volatile("fence rw,rw" ::: "memory");
+    
+    uart_puts("Notifying device (queue 0)...\n");
     // 通知设备
     *R(virtio_base, VIRTIO_MMIO_QUEUE_NOTIFY) = 0;
     
     // 轮询等待完成 (简化版，不使用中断)
-    int timeout = 1000000;  // 超时计数
-    while(disk.used_idx == disk.used->idx && timeout > 0) {
+    int timeout = 10000000;  // 增加超时时间
+    uint16 last_used = disk.used_idx;  // 使用当前的已处理索引
+    
+    uart_puts("Polling for completion... starting from used_idx=");
+    uart_put_dec(last_used);
+    uart_puts("\n");
+    
+    while(last_used == disk.used->idx && timeout > 0) {
         timeout--;
-        // 添加短暂延迟
-        for(int i = 0; i < 100; i++) {
+        // 添加内存屏障确保读取最新值
+        asm volatile("fence rw,rw" ::: "memory");
+        
+        // 添加适当延迟
+        for(int i = 0; i < 1000; i++) {
             asm volatile("nop");
+        }
+        
+        // 减少调试输出频率
+        if (timeout % 5000000 == 0) {
+            uart_puts("Still waiting... local=");
+            uart_put_dec(last_used);
+            uart_puts(" device=");
+            uart_put_dec(disk.used->idx);
+            uart_puts("\n");
         }
     }
     
+    uart_puts("Wait completed. Final used indices: local=");
+    uart_put_dec(last_used);
+    uart_puts(" device=");
+    uart_put_dec(disk.used->idx);
+    uart_puts("\n");
+    
     if(timeout == 0) {
+        uart_puts("Disk read timeout! Final state:\n");
+        uart_puts("  last_used=");
+        uart_put_dec(last_used);
+        uart_puts(" device_used=");
+        uart_put_dec(disk.used->idx);
+        uart_puts("\n  avail_idx=");
+        uart_put_dec(disk.avail->idx);
+        uart_puts(" desc_used=");
+        uart_put_dec(idx[0]);
+        uart_puts("\n");
+        
         debug_print("Disk read timeout");
         free_desc(idx[0]);
         free_desc(idx[1]);
         free_desc(idx[2]);
         return BOOT_ERROR_TIMEOUT;
     }
+    
+    // 更新本地已用索引 - 这很关键！
+    disk.used_idx = disk.used->idx;
+    
+    uart_puts("Status byte: ");
+    uart_put_hex(disk.info[idx[0]].status);
+    uart_puts("\n");
     
     // 检查结果
     if(disk.info[idx[0]].status != 0) {
@@ -343,12 +466,12 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
         return BOOT_ERROR_DISK;
     }
     
-    // 清理
-    free_desc(idx[0]);
-    free_desc(idx[1]);
-    free_desc(idx[2]);
+    uart_puts("Disk read successful!\n");
     
-    disk.used_idx++;
+    // 清理描述符
+    free_desc(idx[0]);
+    free_desc(idx[1]);  
+    free_desc(idx[2]);
     
     return BOOT_SUCCESS;
 }
