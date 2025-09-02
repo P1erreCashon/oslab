@@ -2,11 +2,19 @@
 #include "../common/virtio_boot.h"
 #include "../common/elf_loader.h"
 #include "../common/boot_info.h"
+#include "../common/memory_layout.h"
 
 // 第二阶段主函数
 void bootloader_main(void) {
     uart_puts("\n=== Bootloader Stage 2 ===\n");
     uart_puts("Stage 2 started successfully!\n");
+    
+    // Stage 3.3: 验证内存布局
+    if (!memory_layout_validate()) {
+        uart_puts("CRITICAL: Memory layout validation failed!\n");
+        goto error;
+    }
+    memory_layout_print();
     
     // 初始化引导信息结构
     struct boot_info *boot_info = get_boot_info();

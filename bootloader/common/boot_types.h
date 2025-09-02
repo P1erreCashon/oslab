@@ -7,18 +7,24 @@ typedef unsigned short uint16;
 typedef unsigned int   uint32;
 typedef unsigned long  uint64;
 
+typedef int bool;
+#define true 1
+#define false 0
+
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t;
 
-// bootloader专用内存布局
-// Memory layout for boot process  
-#define STAGE1_ADDR     0x80000000
-#define STAGE2_ADDR     0x80030000    // After kernel BSS end (0x80021D40), safe area
-#define STAGE2_SIZE     0x3000        // 12KB for stage2 code
-#define KERNEL_ADDR     0x80000000    // Kernel starts at same as stage1
-#define BOOT_INFO_ADDR  0x80040000    // Boot info structure (1KB)
-#define BOOTLOADER_BUFFER   0x80041000  // I/O缓冲区 (after boot_info)
-#define BOOTLOADER_HEAP     0x80050000  // Heap start after buffer
+// 包含新的内存布局定义
+#include "memory_layout.h"
+
+// === Stage 3.3: 更新内存布局 ===
+// 使用memory_layout.h中定义的生产级布局
+// 保持向后兼容性的别名
+
+// 向后兼容性定义
+#define STAGE1_ADDR     KERNEL_BASE_ADDR      // Stage1加载到内核位置
+#define KERNEL_ADDR     KERNEL_BASE_ADDR      // 内核基地址
+// STAGE2_ADDR, BOOT_INFO_ADDR, BOOTLOADER_BUFFER 已在memory_layout.h中定义
 
 // 磁盘布局定义
 #define SECTOR_SIZE         512
