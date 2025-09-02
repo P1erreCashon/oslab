@@ -14,3 +14,4 @@ kernelmemfs
 kernel/kernel
 user/usys.S
 .gdbinit
+mkfs/mkfs
