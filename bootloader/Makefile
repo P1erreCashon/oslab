@@ -7,7 +7,7 @@ CFLAGS = -march=rv64g -mabi=lp64 -static -mcmodel=medany -fno-common -nostdlib -
 CFLAGS += -Icommon -Os -g  # 使用-Os优化大小和速度
 
 # 通用模块对象文件
-COMMON_OBJS = common/uart.o common/memory.o common/virtio_boot.o common/elf_loader.o common/fast_mem.o common/string.o
+COMMON_OBJS = common/uart.o common/memory.o common/virtio_boot.o common/elf_loader.o common/fast_mem.o common/string.o common/boot_info.o
 
 # 第一阶段构建 (512字节限制) - 只使用汇编
 stage1.bin: boot.S

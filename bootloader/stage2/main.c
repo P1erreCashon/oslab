@@ -1,11 +1,16 @@
 #include "../common/boot_types.h"
 #include "../common/virtio_boot.h"
 #include "../common/elf_loader.h"
+#include "../common/boot_info.h"
 
 // 第二阶段主函数
 void bootloader_main(void) {
     uart_puts("\n=== Bootloader Stage 2 ===\n");
     uart_puts("Stage 2 started successfully!\n");
+    
+    // 初始化引导信息结构
+    struct boot_info *boot_info = get_boot_info();
+    boot_info_init(boot_info);
     
     // 显示内存使用情况
     uart_puts("Memory usage: ");
@@ -100,6 +105,20 @@ void bootloader_main(void) {
         goto error;
     }
     
+    // 设置引导信息中的内核参数
+    uart_puts("[BEFORE setup] Magic: ");
+    uart_put_hex(boot_info->magic);
+    uart_puts("\n");
+    
+    boot_info_setup_kernel_params(&load_info);
+    
+    uart_puts("[AFTER setup] Magic: ");
+    uart_put_hex(boot_info->magic);
+    uart_puts("\n");
+    
+    // 显示完整的引导信息
+    boot_info_print(boot_info);
+    
     // 显示最终内存使用
     uart_puts("Total memory used: ");
     uart_put_memsize(boot_memory_used());
@@ -122,27 +141,26 @@ void bootloader_main(void) {
     uart_puts("=== JUMPING TO KERNEL ===\n");
     uart_puts("Setting up kernel boot environment...\n");
     
-    // Linus式解决方案：为内核提供临时栈
-    // 内核栈在0x80008a10，但我们只复制了4KB到0x80001000
-    // 解决方案：给内核一个临时栈，让它自己设置正确的栈
+    // 按RISC-V引导约定设置寄存器
+    // a0 = hart ID (0 for boot hart)
+    // a1 = device tree pointer (0 for now, 将来可指向boot_info)
+    uint64 hart_id = 0;
+    uint64 dtb_ptr = (uint64)boot_info;  // 传递引导信息地址
     
-    uint64 temp_stack = 0x80030000; // 使用我们的缓冲区作为临时栈
-    uart_puts("Setting temporary stack at: ");
-    uart_put_hex(temp_stack);
-    uart_puts("\n");
-    
-    uart_puts("Final jump to: ");
-    uart_put_hex(load_info.entry_point);
+    uart_puts("Hart ID: ");
+    uart_put_dec(hart_id);
+    uart_puts("\nBoot Info Address: ");
+    uart_put_hex(dtb_ptr);
     uart_puts("\n");
     
     // 设置临时栈并跳转到内核
     asm volatile(
-        "li sp, %1\n"                   // 设置临时栈指针
-        "li a0, 0\n"                    // hart ID = 0
-        "li a1, 0\n"                    // device tree ptr = 0
-        "jr %0\n"                       // 跳转到内核入口点
+        "li sp, %2\n"                   // 设置临时栈指针
+        "mv a0, %0\n"                   // hart ID
+        "mv a1, %1\n"                   // boot info pointer
+        "jr %3\n"                       // 跳转到内核入口点
         :
-        : "r"(load_info.entry_point), "i"(0x80030000)
+        : "r"(hart_id), "r"(dtb_ptr), "i"(0x80030000), "r"(load_info.entry_point)
         : "a0", "a1"
     );
     

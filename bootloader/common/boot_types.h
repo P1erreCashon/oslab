@@ -16,7 +16,8 @@ typedef uint64 *pagetable_t;
 #define STAGE2_ADDR     0x80030000    // After kernel BSS end (0x80021D40), safe area
 #define STAGE2_SIZE     0x3000        // 12KB for stage2 code
 #define KERNEL_ADDR     0x80000000    // Kernel starts at same as stage1
-#define BOOTLOADER_BUFFER   0x80040000  // I/O缓冲区 (after stage2)
+#define BOOT_INFO_ADDR  0x80040000    // Boot info structure (1KB)
+#define BOOTLOADER_BUFFER   0x80041000  // I/O缓冲区 (after boot_info)
 #define BOOTLOADER_HEAP     0x80050000  // Heap start after buffer
 
 // 磁盘布局定义
@@ -57,5 +58,13 @@ void *boot_alloc_page(void);
 uint64 boot_memory_used(void);
 void *memset(void *dst, int c, uint64 n);
 void *memmove(void *dst, const void *src, uint64 n);
+
+// 引导信息函数
+struct boot_info;
+struct elf_load_info;
+void boot_info_init(struct boot_info *info);
+void boot_info_setup_kernel_params(const struct elf_load_info *load_info);
+void boot_info_print(const struct boot_info *info);
+struct boot_info *get_boot_info(void);
 
 #endif
