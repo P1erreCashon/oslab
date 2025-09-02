@@ -3,6 +3,7 @@
 #include "../common/elf_loader.h"
 #include "../common/boot_info.h"
 #include "../common/memory_layout.h"
+#include "../common/device_tree.h"
 
 // 第二阶段主函数
 void bootloader_main(void) {
@@ -62,6 +63,53 @@ void bootloader_main(void) {
     }
     uart_puts("\n");
     
+    // Stage 3.3.2: 硬件检测和设备树生成
+    uart_puts("Detecting hardware platform...\n");
+    struct hardware_description hw_desc;
+    if (hardware_detect_platform(&hw_desc) != 0) {
+        uart_puts("Failed to detect hardware platform\n");
+        goto error;
+    }
+    hardware_print_info(&hw_desc);
+    
+    if (hardware_validate_config(&hw_desc) != 0) {
+        uart_puts("Hardware configuration validation failed\n");
+        goto error;
+    }
+    
+    uart_puts("Generating device tree...\n");
+    struct device_tree_builder dt_builder;
+    char *dt_buffer = (char *)BOOT_INFO_REGION_ADDR + 4096; // 4KB offset from boot_info
+    device_tree_init(&dt_builder, dt_buffer, 60 * 1024); // 60KB for device tree
+    
+    // 构建设备树
+    if (device_tree_add_memory(&dt_builder, hw_desc.memory_base, hw_desc.memory_size) != 0) {
+        uart_puts("Failed to add memory to device tree\n");
+        goto error;
+    }
+    
+    if (device_tree_add_cpu(&dt_builder, 0) != 0) {
+        uart_puts("Failed to add CPU to device tree\n");  
+        goto error;
+    }
+    
+    if (device_tree_add_uart(&dt_builder, hw_desc.uart_base, hw_desc.uart_interrupt) != 0) {
+        uart_puts("Failed to add UART to device tree\n");
+        goto error;
+    }
+    
+    if (device_tree_add_virtio(&dt_builder, hw_desc.virtio_base, hw_desc.virtio_interrupt) != 0) {
+        uart_puts("Failed to add VirtIO to device tree\n");
+        goto error;
+    }
+    
+    if (device_tree_finalize(&dt_builder) != 0) {
+        uart_puts("Failed to finalize device tree\n");
+        goto error;
+    }
+    
+    device_tree_print(&dt_builder);
+    
     uart_puts("Loading kernel from disk...\n");
     
     // 分配内核缓冲区 - 需要足够大来加载整个内核
@@ -119,6 +167,7 @@ void bootloader_main(void) {
     uart_puts("\n");
     
     boot_info_setup_kernel_params(&load_info);
+    boot_info_setup_device_tree(&dt_builder, &hw_desc);
     
     uart_puts("[AFTER setup] Magic: ");
     uart_put_hex(boot_info->magic);

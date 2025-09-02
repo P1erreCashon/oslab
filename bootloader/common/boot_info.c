@@ -1,5 +1,6 @@
 #include "boot_info.h"
 #include "boot_types.h"
+#include "device_tree.h"
 #include "elf_loader.h"
 
 // 全局引导信息结构
@@ -35,6 +36,22 @@ void boot_info_setup_kernel_params(const struct elf_load_info *load_info) {
     info->kernel_base = load_info->load_base;
     info->kernel_size = load_info->load_size;
     info->kernel_entry = load_info->entry_point;
+}
+
+void boot_info_setup_device_tree(const struct device_tree_builder *dt_builder, 
+                                 const struct hardware_description *hw_desc) {
+    struct boot_info *info = get_boot_info();
+    
+    // 设备树信息
+    info->device_tree_addr = (uint64)device_tree_get_binary(dt_builder);
+    info->device_tree_size = device_tree_get_binary_size(dt_builder);
+    info->hardware_platform = (uint64)hw_desc->platform;
+    
+    uart_puts("[DEBUG] Device tree setup: addr=");
+    uart_put_hex(info->device_tree_addr);
+    uart_puts(" size=");
+    uart_put_dec(info->device_tree_size);
+    uart_puts("\n");
 }
 
 // 打印引导信息（调试用）
@@ -80,7 +97,11 @@ void boot_info_print(const struct boot_info *info) {
     uart_put_dec(info->fs_base_sector);
     uart_puts(" count ");
     uart_put_dec(info->fs_sector_count);
-    uart_puts("\n=========================\n");
+    uart_puts("\nDevice Tree: ");
+    uart_put_hex(info->device_tree_addr);
+    uart_puts(" (");
+    uart_put_memsize(info->device_tree_size);
+    uart_puts(")\n=========================\n");
 }
 
 // 获取引导信息指针

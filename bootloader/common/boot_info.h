@@ -1,6 +1,10 @@
 #ifndef BOOT_INFO_H
 #define BOOT_INFO_H
 
+// 前向声明避免循环包含
+struct device_tree_builder;
+struct hardware_description;
+
 #include "boot_types.h"
 
 // RISC-V Boot Information Structure
@@ -27,8 +31,13 @@ struct boot_info {
     uint64 fs_base_sector;   // 文件系统起始扇区
     uint64 fs_sector_count;  // 文件系统扇区数
     
+    // Stage 3.3.2: 设备树信息
+    uint64 device_tree_addr; // 设备树二进制数据地址
+    uint64 device_tree_size; // 设备树数据大小
+    uint64 hardware_platform; // 硬件平台类型
+    
     // 预留空间用于未来扩展
-    uint64 reserved[8];
+    uint64 reserved[5];
 };
 
 // 引导信息魔数
@@ -38,6 +47,8 @@ struct boot_info {
 // 函数声明
 void boot_info_init(struct boot_info *info);
 void boot_info_setup_kernel_params(const struct elf_load_info *load_info);
+void boot_info_setup_device_tree(const struct device_tree_builder *dt_builder, 
+                                 const struct hardware_description *hw_desc);
 void boot_info_print(const struct boot_info *info);
 
 #endif
