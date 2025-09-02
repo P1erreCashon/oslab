@@ -2,7 +2,7 @@
 
 // 简单的线性分配器状态
 static char *heap_current = (char *)BOOTLOADER_HEAP;
-static char *heap_end = (char *)BOOTLOADER_BUFFER;
+static char *heap_end = (char *)(BOOTLOADER_HEAP + 0x10000);  // 64KB heap space
 static uint64 allocated_bytes = 0;
 
 // bootloader专用的内存分配

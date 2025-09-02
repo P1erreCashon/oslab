@@ -4,10 +4,10 @@ OBJCOPY = riscv64-unknown-elf-objcopy
 OBJDUMP = riscv64-unknown-elf-objdump
 
 CFLAGS = -march=rv64g -mabi=lp64 -static -mcmodel=medany -fno-common -nostdlib -mno-relax
-CFLAGS += -Icommon -O2 -g
+CFLAGS += -Icommon -Os -g  # 使用-Os优化大小和速度
 
 # 通用模块对象文件
-COMMON_OBJS = common/uart.o common/memory.o common/virtio_boot.o common/elf_loader.o
+COMMON_OBJS = common/uart.o common/memory.o common/virtio_boot.o common/elf_loader.o common/fast_mem.o common/string.o
 
 # 第一阶段构建 (512字节限制) - 只使用汇编
 stage1.bin: boot.S
@@ -59,6 +59,10 @@ bootdisk_stage3.img: stage1.bin stage2.bin ../kernel/kernel ../fs.img
 
 # C文件编译规则
 %.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# 汇编文件编译规则
+%.o: %.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # 兼容性目标 (保持与第一阶段的兼容)

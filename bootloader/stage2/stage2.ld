@@ -1,8 +1,13 @@
 ENTRY(_start)
 
+MEMORY
+{
+    RAM : ORIGIN = 0x80030000, LENGTH = 128M
+}
+
 SECTIONS
 {
-  . = 0x80001000;
+    . = 0x80030000;
   
   .text : {
     *(.text)

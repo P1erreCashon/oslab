@@ -11,11 +11,13 @@ typedef uint64 pte_t;
 typedef uint64 *pagetable_t;
 
 // bootloader专用内存布局
-#define BOOTLOADER_BASE     0x80000000  // 第一阶段加载地址
-#define BOOTLOADER_STAGE2   0x80001000  // 第二阶段加载地址
-#define BOOTLOADER_HEAP     0x80010000  // 堆内存起始
-#define BOOTLOADER_STACK    0x80020000  // 栈内存起始
-#define BOOTLOADER_BUFFER   0x80030000  // I/O缓冲区
+// Memory layout for boot process  
+#define STAGE1_ADDR     0x80000000
+#define STAGE2_ADDR     0x80030000    // After kernel BSS end (0x80021D40), safe area
+#define STAGE2_SIZE     0x3000        // 12KB for stage2 code
+#define KERNEL_ADDR     0x80000000    // Kernel starts at same as stage1
+#define BOOTLOADER_BUFFER   0x80040000  // I/O缓冲区 (after stage2)
+#define BOOTLOADER_HEAP     0x80050000  // Heap start after buffer
 
 // 磁盘布局定义
 #define SECTOR_SIZE         512
@@ -28,6 +30,10 @@ typedef uint64 *pagetable_t;
 #define BOOT_SUCCESS         0
 #define BOOT_ERROR_DISK     -1
 #define BOOT_ERROR_MEMORY   -2
+
+// 汇编优化函数声明
+void fast_memcpy(void *dest, const void *src, uint64 size);
+void fast_memset(void *ptr, uint64 size);
 #define BOOT_ERROR_FORMAT   -3
 #define BOOT_ERROR_TIMEOUT  -4
 

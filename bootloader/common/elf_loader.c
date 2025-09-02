@@ -39,22 +39,45 @@ void elf_clear_bss(struct program_header *ph) {
     uart_put_hex(bss_size);
     uart_puts("\n");
     
-    // 临时限制BSS清除大小进行测试
-    if (bss_size > 1024) {
-        uart_puts("WARNING: Large BSS, clearing only 1KB for test\n");
-        bss_size = 1024;
+    uart_puts("Starting detailed BSS clear...\n");
+    
+    // 详细进度的BSS清零 - 每1KB报告一次
+    const uint64 report_interval = 1024;
+    uint64 cleared = 0;
+    
+    while (cleared < bss_size) {
+        uint64 to_clear = bss_size - cleared;
+        if (to_clear > report_interval) to_clear = report_interval;
+        
+        uart_puts("BSS[");
+        uart_put_hex(bss_start + cleared);
+        uart_puts("->");
+        uart_put_hex(bss_start + cleared + to_clear - 1);
+        uart_puts("] ");
+        
+        char *bss_chunk = (char*)(bss_start + cleared);
+        for (uint64 i = 0; i < to_clear; i++) {
+            bss_chunk[i] = 0;
+            // 每256字节显示一个点
+            if ((i & 0xFF) == 0 && i > 0) {
+                uart_putc('.');
+            }
+        }
+        
+        cleared += to_clear;
+        uart_puts("OK\n");
+        
+        // 显示总进度
+        uart_puts("BSS Progress: ");
+        uart_put_hex(cleared);
+        uart_puts("/");
+        uart_put_hex(bss_size);
+        uart_puts(" (");
+        uart_put_dec((cleared * 100) / bss_size);
+        uart_puts("%)\n");
     }
     
-    uart_puts("Starting BSS clear...\n");
-    // 快速清零
-    char *bss_ptr = (char *)bss_start;
-    for (uint64 i = 0; i < bss_size; i++) {
-        bss_ptr[i] = 0;
-        if ((i & 0xFF) == 0) { // 每256字节显示进度
-            uart_putc('.');
-        }
-    }
-    uart_puts("BSS cleared\n");
+    uart_puts("=== ALL BSS CLEARED ===\n");
 }
 
 // 加载单个程序段
@@ -76,29 +99,58 @@ elf_error_t elf_load_segment(struct program_header *ph, char *elf_data) {
         uart_puts("WARNING: Segment address outside expected range\n");
     }
     
-    // 复制文件数据到内存 - 测试版本（限制大小）
+    // 复制文件数据到内存 - 完整版本
     char *dest = (char *)ph->p_vaddr;
     char *src = elf_data + ph->p_offset;
     
     uint64 copy_size = ph->p_filesz;
-    // 临时限制：只复制前4KB来测试
-    if (copy_size > 4096) {
-        uart_puts("WARNING: Large segment, copying only 4KB for test\n");
-        copy_size = 4096;
-    }
     
     uart_puts("Copying ");
     uart_put_hex(copy_size);
-    uart_puts(" bytes...\n");
+    uart_puts(" bytes with detailed progress...\n");
 
-    // 简单字节复制
-    for (uint64 i = 0; i < copy_size; i++) {
-        dest[i] = src[i];
-        if ((i & 0x3FF) == 0) { // 每1KB显示进度
-            uart_putc('.');
+    // 详细进度的内存复制 - 每1KB报告一次
+    const uint64 report_interval = 1024; // 每1KB报告进度
+    uint64 copied = 0;
+    
+    uart_puts("Starting copy: ");
+    
+    while (copied < copy_size) {
+        uint64 to_copy = copy_size - copied;
+        if (to_copy > report_interval) to_copy = report_interval;
+        
+        // 复制这个块
+        char *chunk_dest = dest + copied;
+        char *chunk_src = src + copied;
+        
+        uart_puts("[");
+        uart_put_hex(copied);
+        uart_puts("->");
+        uart_put_hex(copied + to_copy - 1);
+        uart_puts("] ");
+        
+        for (uint64 i = 0; i < to_copy; i++) {
+            chunk_dest[i] = chunk_src[i];
+            // 每256字节显示一个点
+            if ((i & 0xFF) == 0 && i > 0) {
+                uart_putc('.');
+            }
         }
+        
+        copied += to_copy;
+        uart_puts("OK\n");
+        
+        // 显示总进度
+        uart_puts("Progress: ");
+        uart_put_hex(copied);
+        uart_puts("/");
+        uart_put_hex(copy_size);
+        uart_puts(" (");
+        uart_put_dec((copied * 100) / copy_size);
+        uart_puts("%)\n");
     }
-    uart_puts(" done\n");
+    
+    uart_puts("=== ALL CODE COPIED ===\n");
     
     // 清零BSS部分
     elf_clear_bss(ph);

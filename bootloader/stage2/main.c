@@ -120,10 +120,34 @@ void bootloader_main(void) {
     asm volatile("fence.i" ::: "memory");
     
     uart_puts("=== JUMPING TO KERNEL ===\n");
+    uart_puts("Setting up kernel boot environment...\n");
     
-    // 跳转到内核入口点
-    void (*kernel_entry)(void) = (void (*)(void))load_info.entry_point;
-    kernel_entry();
+    // Linus式解决方案：为内核提供临时栈
+    // 内核栈在0x80008a10，但我们只复制了4KB到0x80001000
+    // 解决方案：给内核一个临时栈，让它自己设置正确的栈
+    
+    uint64 temp_stack = 0x80030000; // 使用我们的缓冲区作为临时栈
+    uart_puts("Setting temporary stack at: ");
+    uart_put_hex(temp_stack);
+    uart_puts("\n");
+    
+    uart_puts("Final jump to: ");
+    uart_put_hex(load_info.entry_point);
+    uart_puts("\n");
+    
+    // 设置临时栈并跳转到内核
+    asm volatile(
+        "li sp, %1\n"                   // 设置临时栈指针
+        "li a0, 0\n"                    // hart ID = 0
+        "li a1, 0\n"                    // device tree ptr = 0
+        "jr %0\n"                       // 跳转到内核入口点
+        :
+        : "r"(load_info.entry_point), "i"(0x80030000)
+        : "a0", "a1"
+    );
+    
+    // 永远不应该到达这里
+    uart_puts("ERROR: Returned from kernel!\n");
     
 error:
     uart_puts("Boot failed, halting...\n");
