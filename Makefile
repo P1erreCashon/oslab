@@ -88,6 +88,7 @@ $(BUILD_DIR)/%.o: $(SRC)/%.S
 	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
 
 $K/kernel: dirs $(ENTRY_OBJ) $(OBJS_NO_ENTRY) $(SRC)/linker/kernel.ld $U/initcode
+	@mkdir -p $K
 	$(LD) $(LDFLAGS) -T $(SRC)/linker/kernel.ld -o $K/kernel $(ENTRY_OBJ) $(OBJS_NO_ENTRY)
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
@@ -154,8 +155,7 @@ fs.img: mkfs/mkfs README $(UPROGS)
 
 clean: 
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*/*.o */*.d */*.asm */*.sym \
-	$U/initcode $U/initcode.out $K/kernel fs.img \
+	$U/initcode $K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
 	$(UPROGS)
