@@ -105,3 +105,8 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
 };
+
+extern struct cpu cpus[NCPU];
+extern struct proc proc[NPROC];
+extern struct proc *initproc;
+extern int nextpid;
