@@ -159,6 +159,7 @@ clean:
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
 	$(UPROGS)
+	rm -f $U/*.o $U/*.d $U/*.asm $U/*.sym
 	rm -rf $(BUILD_DIR)
 
 # try to generate a unique GDB port
