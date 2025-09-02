@@ -4,14 +4,19 @@
 #include "../common/boot_info.h"
 #include "../common/memory_layout.h"
 #include "../common/device_tree.h"
+#include "../common/error_handling.h"
 
 // 第二阶段主函数
 void bootloader_main(void) {
     uart_puts("\n=== Bootloader Stage 2 ===\n");
     uart_puts("Stage 2 started successfully!\n");
     
+    // Stage 3.3.3: 初始化错误处理系统
+    error_system_init();
+    
     // Stage 3.3: 验证内存布局
     if (!memory_layout_validate()) {
+        ERROR_REPORT(ERROR_MEMORY_OVERLAP);
         uart_puts("CRITICAL: Memory layout validation failed!\n");
         goto error;
     }
@@ -36,9 +41,15 @@ void bootloader_main(void) {
     uart_puts("\n");
     
     if (init_result != BOOT_SUCCESS) {
+        error_action_t action = ERROR_REPORT_CTX1(ERROR_VIRTIO_INIT_FAILED, init_result);
         uart_puts("Failed to initialize virtio disk: ");
         uart_put_dec(init_result);
         uart_puts("\n");
+        
+        if (action == ERROR_ACTION_ABORT) {
+            goto error;
+        }
+        // 可以在这里添加fallback逻辑
         goto error;
     }
     
@@ -51,8 +62,20 @@ void bootloader_main(void) {
     uart_puts("Attempting to read boot sector (sector 0)...\n");
     
     if (virtio_disk_read_sync(0, test_buf) != BOOT_SUCCESS) {
+        error_action_t action = ERROR_REPORT_CTX1(ERROR_DISK_READ_FAILED, 0);
         uart_puts("Failed to read boot sector\n");
-        goto error;
+        
+        if (action == ERROR_ACTION_RETRY) {
+            uart_puts("Retrying boot sector read...\n");
+            if (virtio_disk_read_sync(0, test_buf) != BOOT_SUCCESS) {
+                ERROR_REPORT_CTX1(ERROR_DISK_READ_FAILED, 0);
+                uart_puts("Boot sector read retry failed\n");
+                goto error;
+            }
+            uart_puts("Boot sector read retry succeeded\n");
+        } else {
+            goto error;
+        }
     }
     
     uart_puts("Boot sector read successful! First 16 bytes:\n");
@@ -67,12 +90,14 @@ void bootloader_main(void) {
     uart_puts("Detecting hardware platform...\n");
     struct hardware_description hw_desc;
     if (hardware_detect_platform(&hw_desc) != 0) {
+        ERROR_REPORT(ERROR_HARDWARE_FAULT);
         uart_puts("Failed to detect hardware platform\n");
         goto error;
     }
     hardware_print_info(&hw_desc);
     
     if (hardware_validate_config(&hw_desc) != 0) {
+        ERROR_REPORT(ERROR_INVALID_DEVICE);
         uart_puts("Hardware configuration validation failed\n");
         goto error;
     }
@@ -84,26 +109,31 @@ void bootloader_main(void) {
     
     // 构建设备树
     if (device_tree_add_memory(&dt_builder, hw_desc.memory_base, hw_desc.memory_size) != 0) {
+        ERROR_REPORT(ERROR_BOOT_DEVICE_TREE_FAILED);
         uart_puts("Failed to add memory to device tree\n");
         goto error;
     }
     
     if (device_tree_add_cpu(&dt_builder, 0) != 0) {
+        ERROR_REPORT(ERROR_BOOT_DEVICE_TREE_FAILED);
         uart_puts("Failed to add CPU to device tree\n");  
         goto error;
     }
     
     if (device_tree_add_uart(&dt_builder, hw_desc.uart_base, hw_desc.uart_interrupt) != 0) {
+        ERROR_REPORT(ERROR_BOOT_DEVICE_TREE_FAILED);
         uart_puts("Failed to add UART to device tree\n");
         goto error;
     }
     
     if (device_tree_add_virtio(&dt_builder, hw_desc.virtio_base, hw_desc.virtio_interrupt) != 0) {
+        ERROR_REPORT(ERROR_BOOT_DEVICE_TREE_FAILED);
         uart_puts("Failed to add VirtIO to device tree\n");
         goto error;
     }
     
     if (device_tree_finalize(&dt_builder) != 0) {
+        ERROR_REPORT(ERROR_BOOT_DEVICE_TREE_FAILED);
         uart_puts("Failed to finalize device tree\n");
         goto error;
     }
@@ -155,6 +185,25 @@ void bootloader_main(void) {
     elf_error_t elf_result = elf_load_kernel(kernel_buf, &load_info);
     
     if (elf_result != ELF_SUCCESS) {
+        error_code_t error_code = ERROR_ELF_LOAD_FAILED;
+        
+        // 根据ELF错误类型选择具体的错误代码
+        switch (elf_result) {
+            case ELF_ERROR_INVALID_MAGIC:
+                error_code = ERROR_ELF_INVALID_MAGIC;
+                break;
+            case ELF_ERROR_INVALID_ARCH:
+                error_code = ERROR_ELF_INVALID_CLASS;  // 架构错误映射到类错误
+                break;
+            case ELF_ERROR_INVALID_PHNUM:
+                error_code = ERROR_ELF_NO_SEGMENTS;    // 程序头错误映射到段错误
+                break;
+            default:
+                error_code = ERROR_ELF_LOAD_FAILED;
+                break;
+        }
+        
+        ERROR_REPORT_CTX1(error_code, elf_result);
         uart_puts("ELF kernel loading failed: ");
         uart_put_dec(elf_result);
         uart_puts("\n");
@@ -225,7 +274,10 @@ void bootloader_main(void) {
     uart_puts("ERROR: Returned from kernel!\n");
     
 error:
-    uart_puts("Boot failed, halting...\n");
+    ERROR_REPORT(ERROR_SYSTEM_HALT);
+    uart_puts("Boot failed, displaying error statistics...\n");
+    error_print_statistics();
+    uart_puts("Halting...\n");
     while (1) {
         asm volatile("wfi");
     }
