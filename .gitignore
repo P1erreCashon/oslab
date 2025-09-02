@@ -16,3 +16,5 @@ kernel/kernel
 user/usys.S
 .gdbinit
 .env
+*.elf
+*.bin
