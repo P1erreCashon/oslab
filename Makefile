@@ -171,3 +171,17 @@ qemu-gdb: $K/kernel .gdbinit fs.img
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
+# Bootloader targets
+bootloader/boot.bin:
+	$(MAKE) -C bootloader
+
+bootdisk.img: bootloader/boot.bin $K/kernel fs.img
+	dd if=/dev/zero of=bootdisk.img bs=1M count=64
+	dd if=bootloader/boot.bin of=bootdisk.img bs=512 count=1 conv=notrunc
+	dd if=$K/kernel of=bootdisk.img bs=512 seek=64 conv=notrunc
+	dd if=fs.img of=bootdisk.img bs=512 seek=2048 conv=notrunc
+
+# Test bootloader (separate target)
+qemu-boot: bootdisk.img
+	$(QEMU) -machine virt -bios none -drive file=bootdisk.img,format=raw,if=virtio -m 128M -smp $(CPUS) -nographic
+
