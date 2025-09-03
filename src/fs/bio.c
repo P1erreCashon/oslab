@@ -88,7 +88,7 @@ bget(uint dev, uint blockno)
   panic("bget: no buffers");
 }
 
-// Return a locked buf with the contents of the indicated block.
+/// @brief 从指定设备和块号读取一个块，并返回指向该块的缓冲区指针。
 struct buf*
 bread(uint dev, uint blockno)
 {
