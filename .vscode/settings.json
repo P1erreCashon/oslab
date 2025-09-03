@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "spinlock.h": "c",
-        "buf.h": "c",
-        "fs.h": "c",
-        "riscv.h": "c",
-        "types.h": "c"
-    }
-}
