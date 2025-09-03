@@ -1,5 +1,6 @@
 #include "boot_types.h"
 #include "virtio_boot.h"
+#include "memory_layout.h"
 
 // 寄存器访问宏 
 #define R(addr, r) ((volatile uint32 *)((addr) + (r)))
@@ -174,12 +175,13 @@ int virtio_disk_boot_init(void) {
     uart_put_dec(max);
     uart_puts("\n");
     
-    // 分配队列内存 (使用页对齐分配)
-    disk.desc = (struct virtq_desc *)boot_alloc_page();
-    disk.avail = (struct virtq_avail *)boot_alloc_page();
-    disk.used = (struct virtq_used *)boot_alloc_page();
+    // 分配队列内存 - 使用VirtIO专用区域而不是通用堆
+    uint64 virtio_mem_base = VIRTIO_REGION_ADDR;
+    disk.desc = (struct virtq_desc *)virtio_mem_base;
+    disk.avail = (struct virtq_avail *)(virtio_mem_base + 0x1000);   // 第二个4KB页
+    disk.used = (struct virtq_used *)(virtio_mem_base + 0x2000);     // 第三个4KB页
     
-    if(!disk.desc || !disk.avail || !disk.used) {
+    if (!disk.desc || !disk.avail || !disk.used) {
         debug_print("Queue memory allocation failed");
         return BOOT_ERROR_MEMORY;
     }
@@ -195,18 +197,13 @@ int virtio_disk_boot_init(void) {
     
     uart_puts("Skipping queue memory clear for now...\n");
     
-    // 暂时跳过内存清零以诊断问题
-    // char *desc_ptr = (char *)disk.desc;
-    // for (int i = 0; i < 4096; i++) desc_ptr[i] = 0;
-    uart_puts("desc cleared (skipped)\n");
+    // 初始化avail和used结构
+    disk.avail->flags = 0;
+    disk.avail->idx = 0;
+    disk.used->flags = 0;
+    disk.used->idx = 0;
     
-    // char *avail_ptr = (char *)disk.avail;  
-    // for (int i = 0; i < 4096; i++) avail_ptr[i] = 0;
-    uart_puts("avail cleared (skipped)\n");
-    
-    // char *used_ptr = (char *)disk.used;
-    // for (int i = 0; i < 4096; i++) used_ptr[i] = 0;
-    uart_puts("used cleared (skipped)\n");
+    uart_puts("Queue structures initialized\n");
     
     uart_puts("Setting up queue registers...\n");
     
@@ -219,11 +216,14 @@ int virtio_disk_boot_init(void) {
         uart_puts("WARNING: Queue 0 already ready\n");
     }
     
-    // 设置队列大小
+    // 设置队列大小 - 使用更大的队列来避免溢出
+    uint32 queue_size = (max < NUM) ? max : NUM;
     uart_puts("Setting queue size to ");
-    uart_put_dec(NUM);
-    uart_puts("\n");
-    *R(virtio_base, VIRTIO_MMIO_QUEUE_NUM) = NUM;
+    uart_put_dec(queue_size);
+    uart_puts(" (max=");
+    uart_put_dec(max);
+    uart_puts(")\n");
+    *R(virtio_base, VIRTIO_MMIO_QUEUE_NUM) = queue_size;
     
     uart_puts("Setting descriptor addresses...\n");
     // 设置队列物理地址
@@ -298,18 +298,37 @@ static int alloc_desc(void) {
     for(int i = 0; i < NUM; i++) {
         if(disk.free[i]) {
             disk.free[i] = 0;
+            uart_puts("Alloc desc ");
+            uart_put_dec(i);
+            uart_puts("\n");
             return i;
         }
     }
+    uart_puts("ERROR: No free descriptors available\n");
     return -1;
 }
 
 // 释放描述符
 static void free_desc(int i) {
-    if(i >= NUM || disk.free[i]) {
-        debug_print("Invalid descriptor free");
+    if(i >= NUM) {
+        debug_print("Invalid descriptor index");
+        uart_puts("ERROR: Invalid desc index ");
+        uart_put_dec(i);
+        uart_puts("\n");
         return;
     }
+    
+    if(disk.free[i]) {
+        debug_print("Double free of descriptor");
+        uart_puts("WARNING: Desc ");
+        uart_put_dec(i);
+        uart_puts(" already free\n");
+        return;
+    }
+    
+    uart_puts("Free desc ");
+    uart_put_dec(i);
+    uart_puts("\n");
     
     disk.desc[i].addr = 0;
     disk.desc[i].len = 0;
@@ -342,6 +361,14 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
         debug_print("No free descriptors");
         return BOOT_ERROR_DISK;
     }
+    
+    uart_puts("Allocated descriptors: ");
+    uart_put_dec(idx[0]);
+    uart_puts(", ");
+    uart_put_dec(idx[1]);
+    uart_puts(", ");
+    uart_put_dec(idx[2]);
+    uart_puts("\n");
     
     uart_puts("Building disk read request for sector ");
     uart_put_dec(sector);
@@ -378,14 +405,50 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
     disk.info[idx[0]].in_use = 1;
     
     uart_puts("Adding to available ring...\n");
-    // 提交请求到可用环 - 使用xv6的方式
-    disk.avail->ring[disk.avail->idx % NUM] = idx[0];
+    
+    // 检查 avail->idx 的有效性
+    if (disk.avail->idx < disk.used_idx) {
+        uart_puts("ERROR: avail->idx corruption detected! avail=");
+        uart_put_dec(disk.avail->idx);
+        uart_puts(" used=");
+        uart_put_dec(disk.used_idx);
+        uart_puts(" - resetting avail->idx\n");
+        disk.avail->idx = disk.used_idx;
+    }
+    
+    // 检查队列是否有空间
+    uint16 avail_slots = NUM - (disk.avail->idx - disk.used_idx);
+    if (avail_slots < 1) {
+        uart_puts("ERROR: Queue full! avail=");
+        uart_put_dec(disk.avail->idx);
+        uart_puts(" used=");
+        uart_put_dec(disk.used_idx);
+        uart_puts("\n");
+        free_desc(idx[0]);
+        free_desc(idx[1]);
+        free_desc(idx[2]);
+        return BOOT_ERROR_DISK;
+    }
+    
+    // 提交请求到可用环 - 确保正确的索引计算
+    uint16 ring_idx = disk.avail->idx % NUM;
+    disk.avail->ring[ring_idx] = idx[0];
+    
+    uart_puts("Ring slot ");
+    uart_put_dec(ring_idx);
+    uart_puts(" = desc ");
+    uart_put_dec(idx[0]);
+    uart_puts(" (avail_idx=");
+    uart_put_dec(disk.avail->idx);
+    uart_puts(" -> ");
+    uart_put_dec(disk.avail->idx + 1);
+    uart_puts(")\n");
     
     // 关键：使用xv6的内存屏障方式
     asm volatile("fence rw,rw" ::: "memory");
     
-    // 更新可用索引
-    disk.avail->idx += 1;
+    // 更新可用索引 - 不要让它溢出
+    disk.avail->idx++;
     
     // 再次内存屏障
     asm volatile("fence rw,rw" ::: "memory");
@@ -450,6 +513,17 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
     // 更新本地已用索引 - 这很关键！
     disk.used_idx = disk.used->idx;
     
+    // 处理已完成的请求
+    while (disk.used_idx < disk.used->idx) {
+        struct virtq_used_elem *elem = &disk.used->ring[disk.used_idx % NUM];
+        uart_puts("Processing completed request: desc=");
+        uart_put_dec(elem->id);
+        uart_puts(" len=");
+        uart_put_dec(elem->len);
+        uart_puts("\n");
+        disk.used_idx++;
+    }
+    
     uart_puts("Status byte: ");
     uart_put_hex(disk.info[idx[0]].status);
     uart_puts("\n");
@@ -469,6 +543,14 @@ int virtio_disk_read_sync(uint64 sector, void *buf) {
     uart_puts("Disk read successful!\n");
     
     // 清理描述符
+    uart_puts("Freeing descriptors: ");
+    uart_put_dec(idx[0]);
+    uart_puts(", ");
+    uart_put_dec(idx[1]);
+    uart_puts(", ");
+    uart_put_dec(idx[2]);
+    uart_puts("\n");
+    
     free_desc(idx[0]);
     free_desc(idx[1]);  
     free_desc(idx[2]);

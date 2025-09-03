@@ -164,6 +164,21 @@ elf_error_t elf_load_kernel(char *elf_data, struct elf_load_info *info) {
     
     uart_puts("=== ELF Kernel Loader ===\n");
     
+    // 调试：显示ELF头的前16个字节
+    uart_puts("ELF header bytes: ");
+    unsigned char *bytes = (unsigned char *)elf_data;
+    for (int i = 0; i < 16; i++) {
+        uart_put_hex(bytes[i]);
+        uart_puts(" ");
+    }
+    uart_puts("\n");
+    
+    uart_puts("Magic value read: ");
+    uart_put_hex(elf->e_magic);
+    uart_puts(" (expected: ");
+    uart_put_hex(ELF_MAGIC);
+    uart_puts(")\n");
+    
     // 验证ELF头
     elf_error_t err = elf_validate_header(elf);
     if (err != ELF_SUCCESS) {

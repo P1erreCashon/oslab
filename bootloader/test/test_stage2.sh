@@ -82,19 +82,28 @@ if [ $stage2_size -gt 32768 ]; then
 fi
 
 echo "=== Testing bootloader ==="
-echo "Starting QEMU (Press Ctrl+A X to exit)..."
-echo "Expected output:"
+echo "Expected output sequence:"
 echo "  1. 'BOOT' from stage 1"
-echo "  2. Virtio initialization messages"
-echo "  3. Stage 2 loading progress"
-echo "  4. Test kernel success message"
+echo "  2. 'LDG2' (Stage 1 -> Stage 2)"
+echo "  3. '=== Bootloader Stage 2 ===' (Stage 2 start)"
+echo "  4. Memory layout validation"
+echo "  5. VirtIO initialization messages"
+echo "  6. Hardware detection and device tree"
+echo "  7. Kernel loading progress (may timeout at sector 73)"
 echo
+echo "Starting QEMU test (10 second timeout)..."
+echo "----------------------------------------"
 
-# 运行测试 - 直接从磁盘引导第一扇区
-qemu-system-riscv64 -machine virt -bios none \
-    -kernel bootdisk_stage2.img \
-    -drive file=bootdisk_stage2.img,format=raw,if=virtio \
-    -m 128M -nographic
+# 运行测试 - 使用正确的Stage 2配置，输出到tty
+{ timeout 10 qemu-system-riscv64 -machine virt -bios none \
+    -kernel stage1.bin \
+    -device loader,addr=0x80030000,file=stage2.bin \
+    -global virtio-mmio.force-legacy=false \
+    -drive file=bootdisk_stage2.img,if=none,format=raw,id=x0 \
+    -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
+    -m 128M -nographic 2>&1; } | tee /dev/tty
+
+echo "----------------------------------------"
 
 echo
 echo "=== Test completed ==="

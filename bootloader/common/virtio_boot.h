@@ -43,8 +43,8 @@
 #define VIRTIO_RING_F_INDIRECT_DESC 28
 #define VIRTIO_RING_F_EVENT_IDX     29
 
-// 描述符数量
-#define NUM 8
+// 描述符数量 - 增加到64以避免队列溢出
+#define NUM 64
 
 // virtio描述符结构 (复用kernel/virtio.h)
 struct virtq_desc {
