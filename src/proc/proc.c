@@ -247,7 +247,6 @@ userinit(void)
   p->trapframe->sp = PGSIZE;  // user stack pointer
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
-  p->cwd = namei("/");
 
   p->state = RUNNABLE;
 
@@ -279,7 +278,7 @@ growproc(int n)
 int
 fork(void)
 {
-  int i, pid;
+  int pid;
   struct proc *np;
   struct proc *p = myproc();
 
@@ -301,12 +300,6 @@ fork(void)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
-
-  // increment reference counts on open file descriptors.
-  for(i = 0; i < NOFILE; i++)
-    if(p->ofile[i])
-      np->ofile[i] = filedup(p->ofile[i]);
-  np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
@@ -352,19 +345,6 @@ exit(int status)
     panic("init exiting");
 
   // Close all open files.
-  for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
-      struct file *f = p->ofile[fd];
-      fileclose(f);
-      p->ofile[fd] = 0;
-    }
-  }
-
-  begin_op();
-  iput(p->cwd);
-  end_op();
-  p->cwd = 0;
-
   acquire(&wait_lock);
 
   // Give any children to init.
@@ -439,18 +419,8 @@ wait(uint64 addr)
 void
 forkret(void)
 {
-  static int first = 1;
-
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
-
-  if (first) {
-    // File system initialization must be run in the context of a
-    // regular process (e.g., because it calls sleep), and thus cannot
-    // be run from main().
-    first = 0;
-    fsinit(ROOTDEV);
-  }
 
   usertrapret();
 }

@@ -15,8 +15,6 @@
 #include "param.h"
 #include "spinlock.h"
 #include "sleeplock.h"
-#include "fs.h"
-#include "file.h"
 #include "memlayout.h"
 #include "riscv.h"
 #include "defs.h"
@@ -185,8 +183,6 @@ consoleinit(void)
 
   uartinit();
 
-  // connect read and write system calls
-  // to consoleread and consolewrite.
-  devsw[CONSOLE].read = consoleread;
-  devsw[CONSOLE].write = consolewrite;
+  // devsw[CONSOLE].read = consoleread;
+  // devsw[CONSOLE].write = consolewrite;
 }

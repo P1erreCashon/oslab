@@ -1,10 +1,8 @@
 #include "param.h"
 #include "types.h"
 #include "memlayout.h"
-#include "elf.h"
 #include "riscv.h"
 #include "defs.h"
-#include "fs.h"
 
 /*
  * 内核页表

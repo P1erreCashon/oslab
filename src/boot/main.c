@@ -25,10 +25,6 @@ main()
     trapinithart();      // 安装内核陷阱向量
     plicinit();          // 设置中断控制器
     plicinithart();      // 向PLIC请求设备中断
-    binit();             // 缓冲区缓存初始化
-    iinit();             // inode表初始化
-    fileinit();          // 文件表初始化
-    virtio_disk_init();  // 虚拟硬盘初始化
     userinit();          // 创建第一个用户进程
     __sync_synchronize();
     started = 1;         // 标记系统启动完成

@@ -8,7 +8,7 @@ NPROC := $(shell nproc)
 MAKEFLAGS += -j$(NPROC)
 
 # ===== 路径定义 =====
-SRC_DIRS := boot devs fs lib mm proc sync syscall trap
+SRC_DIRS := boot devs lib mm proc sync syscall trap
 BUILD_DIR := build
 
 # ===== 文件收集规则 =====
@@ -121,8 +121,9 @@ $U/_forktest: $U/forktest.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
-mkfs/mkfs: mkfs/mkfs.c $(SRC)/fs/fs.h $(SRC)/param.h
-	gcc -Werror -Wall -I. -I$(SRC) -o mkfs/mkfs mkfs/mkfs.c
+# ===== 磁盘文件系统构建工具 (已注释) =====
+# mkfs/mkfs: mkfs/mkfs.c $(SRC)/fs/fs.h $(SRC)/param.h
+# 	gcc -Werror -Wall -I. -I$(SRC) -o mkfs/mkfs mkfs/mkfs.c
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
@@ -148,8 +149,9 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 
-fs.img: mkfs/mkfs README $(UPROGS)
-	mkfs/mkfs fs.img README $(UPROGS)
+# ===== 磁盘镜像构建 (已注释) =====
+# fs.img: mkfs/mkfs README $(UPROGS)
+# 	mkfs/mkfs fs.img README $(UPROGS)
 
 -include $(DEPS)
 
@@ -174,16 +176,19 @@ endif
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
 QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+# 注释：磁盘相关的 QEMU 选项 (已注释)
+# QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
+# QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 
-qemu: $K/kernel fs.img
+# 注释：移除了对 fs.img 的依赖
+qemu: $K/kernel
 	$(QEMU) $(QEMUOPTS)
 
 .gdbinit: .gdbinit.tmpl-riscv
 	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
 
-qemu-gdb: $K/kernel .gdbinit fs.img
+# 注释：移除了对 fs.img 的依赖
+qemu-gdb: $K/kernel .gdbinit
 	@echo "*** Now run 'gdb' in another window." 1>&2
 	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
 
