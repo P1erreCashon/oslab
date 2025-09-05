@@ -1,4 +1,4 @@
-typedef unsigned int uint;
+# include "types.h"
 
 // system calls
 int fork(void);

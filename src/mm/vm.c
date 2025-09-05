@@ -22,6 +22,9 @@ kvmmake(void)
   kpgtbl = (pagetable_t)kalloc();
   memset(kpgtbl, 0, PGSIZE);
 
+  // Test device for shutdown control
+  kvmmap(kpgtbl, TEST_DEVICE, TEST_DEVICE, PGSIZE, PTE_R | PTE_W);
+
   // uart寄存器
   kvmmap(kpgtbl, UART0, UART0, PGSIZE, PTE_R | PTE_W);
 
@@ -339,17 +342,65 @@ uvmcreate()
 
 // 将用户初始代码加载到页表的地址0，
 // 用于第一个进程。
-// sz必须小于一页
-void uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
+// 动态分配程序段页数的两倍，低地址存程序段，高地址作栈内存
+uint64 uvmfirst(pagetable_t pagetable, uchar *src, uint sz)
 {
   char *mem;
+  printf("sz: %d\n", sz);
 
-  if (sz >= PGSIZE)
-    panic("uvmfirst: more than a page");
-  mem = kalloc();
-  memset(mem, 0, PGSIZE);
-  mappages(pagetable, 0, PGSIZE, (uint64)mem, PTE_W | PTE_R | PTE_X | PTE_U);
-  memmove(mem, src, sz);
+  // 计算程序段需要的页面数量（向上取整）
+  uint64 prog_pages = PGROUNDUP(sz) / PGSIZE;
+  if (prog_pages == 0)
+    prog_pages = 1; // 至少分配一页
+  
+  // 总共分配两倍的页面数，低地址存程序段，高地址作栈内存
+  uint64 total_pages = prog_pages * 2;
+  uint64 total_size = total_pages * PGSIZE;
+
+  printf("prog_pages: %d, total_pages: %d, total_size: %d\n", prog_pages, total_pages, total_size);
+
+  // 分配程序段页面
+  for (uint64 i = 0; i < prog_pages; i++)
+  {
+    mem = kalloc();
+    if (mem == 0)
+      panic("uvmfirst: kalloc failed for program pages");
+    
+    memset(mem, 0, PGSIZE);
+    
+    if (mappages(pagetable, i * PGSIZE, PGSIZE, (uint64)mem, PTE_W | PTE_R | PTE_X | PTE_U) != 0)
+    {
+      kfree(mem);
+      panic("uvmfirst: mappages failed for program pages");
+    }
+
+    // 复制程序内容
+    uint64 src_offset = i * PGSIZE;
+    uint64 copy_size = (sz - src_offset > PGSIZE) ? PGSIZE : (sz - src_offset);
+    if (copy_size > 0 && src_offset < sz)
+    {
+      memmove(mem, (void *)((uint64)src + src_offset), copy_size);
+    }
+  }
+
+  // 分配栈内存页面
+  for (uint64 i = prog_pages; i < total_pages; i++)
+  {
+    mem = kalloc();
+    if (mem == 0)
+      panic("uvmfirst: kalloc failed for stack pages");
+    
+    memset(mem, 0, PGSIZE);
+    
+    // 栈内存只需要读写权限，不需要执行权限
+    if (mappages(pagetable, i * PGSIZE, PGSIZE, (uint64)mem, PTE_W | PTE_R | PTE_U) != 0)
+    {
+      kfree(mem);
+      panic("uvmfirst: mappages failed for stack pages");
+    }
+  }
+
+  return total_size;
 }
 
 // 分配PTE和物理内存以将进程从oldsz增长到

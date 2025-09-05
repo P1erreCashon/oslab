@@ -87,6 +87,11 @@ $(BUILD_DIR)/%.o: $(SRC)/%.S
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
 
+# 特殊处理 initcode.S，使其依赖于 user/initcode
+$(BUILD_DIR)/boot/initcode.o: $(SRC)/boot/initcode.S $U/initcode
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
+
 $K/kernel: dirs $(ENTRY_OBJ) $(OBJS_NO_ENTRY) $(SRC)/linker/kernel.ld $U/initcode.bin
 	@mkdir -p $K
 	$(LD) $(LDFLAGS) -T $(SRC)/linker/kernel.ld -o $K/kernel $(ENTRY_OBJ) $(OBJS_NO_ENTRY)
