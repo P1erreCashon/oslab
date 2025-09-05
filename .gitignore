@@ -16,3 +16,4 @@ user/usys.S
 .gdbinit
 mkfs/mkfs
 .vscode/
+user/initcode.bin

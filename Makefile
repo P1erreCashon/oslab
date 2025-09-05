@@ -111,9 +111,13 @@ $U/usys.o: $U/usys.S
 $U/initcode.o: $U/initcode.c $U/user.h
 	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -I$(SRC) -c $U/initcode.c -o $U/initcode.o
 
+# 编译 printf.c 为 ELF 文件
+$U/printf.o: $U/printf.c $U/user.h
+	$(CC) $(CFLAGS) -march=rv64g -I. -I$(SRC) -c $U/printf.c -o $U/printf.o
+
 # 链接生成 initcode ELF 文件
-$U/initcode: $U/initcode.o $U/usys.o $U/user-riscv.ld
-	$(LD) $(LDFLAGS) -T $U/user-riscv.ld -o $U/initcode $U/initcode.o $U/usys.o
+$U/initcode: $U/initcode.o $U/usys.o $U/printf.o $U/user-riscv.ld
+	$(LD) $(LDFLAGS) -T $U/user-riscv.ld -o $U/initcode $U/initcode.o $U/usys.o $U/printf.o
 	$(OBJDUMP) -S $U/initcode > $U/initcode.asm
 	$(OBJDUMP) -t $U/initcode | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/initcode.sym
 
@@ -146,6 +150,7 @@ clean:
 	mkfs/mkfs .gdbinit
 	rm -f $U/initcode $U/initcode.o $U/initcode.asm $U/initcode.sym $U/initcode.d $U/initcode.bin
 	rm -f $U/usys.S $U/usys.o $U/usys.d
+	rm -f $U/printf.o $U/printf.d
 	rm -rf $(BUILD_DIR)
 
 # try to generate a unique GDB port
