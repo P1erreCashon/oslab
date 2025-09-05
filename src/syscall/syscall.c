@@ -90,6 +90,8 @@ extern uint64 sys_sleep(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_shutdown(void);
 extern uint64 sys_gettimeofday(void);
+extern uint64 sys_read(void);
+extern uint64 sys_write(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -97,6 +99,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
 [SYS_wait]    sys_wait,
+[SYS_read]    sys_read,
+[SYS_write]   sys_write,
 [SYS_kill]    sys_kill,
 [SYS_getpid]  sys_getpid,
 [SYS_sbrk]    sys_sbrk,
