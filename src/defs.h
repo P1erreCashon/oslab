@@ -11,9 +11,6 @@ void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
 
-// exec.c
-int             exec(char*, char**);
-
 // kalloc.c
 void*           kalloc(void);
 void            kfree(void *);

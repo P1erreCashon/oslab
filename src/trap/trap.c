@@ -292,8 +292,6 @@ devintr()
     // 根据设备类型分发中断处理
     if(irq == UART0_IRQ){
       uartintr();           // 处理串口中断
-    } else if(irq == VIRTIO0_IRQ){
-      // virtio_disk_intr();   // 磁盘中断处理已删除
     } else if(irq){
       printf("unexpected interrupt irq=%d\n", irq);
     }
