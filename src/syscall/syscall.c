@@ -89,6 +89,7 @@ extern uint64 sys_sbrk(void);
 extern uint64 sys_sleep(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_shutdown(void);
+extern uint64 sys_gettimeofday(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -102,6 +103,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_sleep]   sys_sleep,
 [SYS_uptime]  sys_uptime,
 [SYS_shutdown] sys_shutdown,
+[SYS_gettimeofday] sys_gettimeofday,
 };
 
 void

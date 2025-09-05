@@ -89,3 +89,27 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_gettimeofday(void)
+{
+  uint64 tv_addr;
+  struct timeval tv;
+  
+  // 获取用户空间指针
+  argaddr(0, &tv_addr);
+  
+  // 获取当前高精度时间 - 使用 CLINT_MTIME 寄存器
+  uint64 cycles = *(uint64*)CLINT_MTIME;
+  
+  // RISC-V CLINT 时钟频率通常为 10MHz
+  // 将时钟周期转换为秒和微秒
+  tv.tv_sec = cycles / 10000000;
+  tv.tv_usec = (cycles % 10000000) / 10;
+  
+  // 复制到用户空间
+  if(copyout(myproc()->pagetable, tv_addr, (char*)&tv, sizeof(tv)) < 0)
+    return -1;
+    
+  return 0;
+}

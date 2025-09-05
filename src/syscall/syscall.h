@@ -21,3 +21,4 @@
 #define SYS_sleep   20
 #define SYS_uptime  21
 #define SYS_shutdown 22
+#define SYS_gettimeofday 23
