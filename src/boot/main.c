@@ -16,13 +16,6 @@ main()
     printf("xv6 kernel is booting\n");
     printf("\n");
     
-    // 中断初始化
-    trapinit();          // 陷阱向量初始化
-    trapinithart();      // 安装内核陷阱向量
-    plicinit();          // 设置中断控制器
-    plicinithart();      // 向PLIC请求设备中断
-    printf("Interrupt system initialized\n");
-    
     // 物理内存初始化
     kinit();             // 物理页面分配器初始化
     printf("Physical memory initialized\n");
