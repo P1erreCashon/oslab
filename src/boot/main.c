@@ -33,7 +33,7 @@ main()
     printf("Virtual memory and paging enabled\n");
     
     printf("Kernel initialization completed successfully!\n");
-    
+     test_mm();
     // 内核启动完成，进入无限循环
     for(;;)
         ;

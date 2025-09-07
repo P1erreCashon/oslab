@@ -27,7 +27,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
-#include "proc.h"
+#include "proc/proc.h"
 #include "defs.h"
 
 // 全局时钟变量，用于系统定时

@@ -69,6 +69,125 @@ void kvminithart()
   sfence_vma();
 }
 
+// 获取内核页表
+pagetable_t get_kernel_pagetable()
+{
+  return kernel_pagetable;
+}
+
+void test_mm()
+{
+  printf("\n=== Starting Memory System Tests ===\n");
+    
+    // 测试物理内存分配
+    printf("\n--- Testing Physical Memory Allocation ---\n");
+    void *page1 = kalloc();
+    void *page2 = kalloc();
+    void *page3 = kalloc();
+    
+    if(page1 && page2 && page3) {
+        printf("Successfully allocated 3 physical pages:\n");
+        printf("  Page 1: %p\n", page1);
+        printf("  Page 2: %p\n", page2);
+        printf("  Page 3: %p\n", page3);
+        
+        // 测试写入数据到分配的页面
+        char *test_data1 = (char*)page1;
+        char *test_data2 = (char*)page2;
+        
+        // 写入测试数据
+        for(int i = 0; i < 100; i++) {
+            test_data1[i] = 'A' + (i % 26);
+            test_data2[i] = '0' + (i % 10);
+        }
+        test_data1[100] = '\0';
+        test_data2[100] = '\0';
+        
+        printf("  Test data written to page 1: %.20s...\n", test_data1);
+        printf("  Test data written to page 2: %.20s...\n", test_data2);
+        
+        // 释放一个页面并重新分配
+        kfree(page2);
+        printf("  Released page 2: %p\n", page2);
+        
+        void *page4 = kalloc();
+        printf("  Allocated new page: %p\n", page4);
+        
+        // 清理剩余页面
+        kfree(page1);
+        kfree(page3);
+        kfree(page4);
+        printf("  All test pages freed\n");
+    } else {
+        printf("ERROR: Failed to allocate physical pages!\n");
+    }
+    
+    // 测试虚拟内存映射
+    printf("\n--- Testing Virtual Memory Mapping ---\n");
+    
+    // 分配一个物理页面用于测试
+    void *test_page = kalloc();
+    if(test_page) {
+        uint64 va_test = 0x1000000;  // 测试虚拟地址
+        [[maybe_unused]]uint64 pa_test = (uint64)test_page;
+        
+        printf("  Physical page allocated: %p\n", test_page);
+        printf("  Testing virtual address: 0x%x\n", va_test);
+        
+        // 获取当前页表
+        pagetable_t kpgtbl = get_kernel_pagetable();
+        if(kpgtbl) {
+            printf("  Kernel page table: %p\n", kpgtbl);
+            
+            // 查找一个已知的内核虚拟地址映射
+            uint64 kernel_va = KERNBASE;
+            pte_t *pte = walk(kpgtbl, kernel_va, 0);
+            if(pte && (*pte & PTE_V)) {
+                uint64 kernel_pa = PTE2PA(*pte);
+                printf("  Kernel mapping test: VA 0x%x -> PA 0x%x\n", kernel_va, kernel_pa);
+                printf("  PTE flags: V=%d R=%d W=%d X=%d\n", 
+                       (*pte & PTE_V) ? 1 : 0,
+                       (*pte & PTE_R) ? 1 : 0, 
+                       (*pte & PTE_W) ? 1 : 0,
+                       (*pte & PTE_X) ? 1 : 0);
+            } else {
+                printf("  WARNING: Could not find kernel base mapping\n");
+            }
+        }
+        
+        kfree(test_page);
+        printf("  Test page freed\n");
+    } else {
+        printf("ERROR: Failed to allocate test page!\n");
+    }
+    
+    // 测试页表遍历
+    printf("\n--- Testing Page Table Walk ---\n");
+    uint64 test_addresses[] = {
+        KERNBASE,           // 内核基地址
+        KERNBASE + 0x1000,  // 内核第二页
+        PHYSTOP,            // 物理内存顶部
+        UART0               // UART设备地址
+    };
+    
+    pagetable_t kpgtbl = get_kernel_pagetable();
+    for(int i = 0; i < 4; i++) {
+        uint64 va = test_addresses[i];
+        pte_t *pte = walk(kpgtbl, va, 0);
+        
+        printf("  VA 0x%x: ", va);
+        if(pte && (*pte & PTE_V)) {
+            uint64 pa = PTE2PA(*pte);
+            printf("-> PA 0x%x (Valid)\n", pa);
+        } else {
+            printf("-> Not mapped or invalid\n");
+        }
+    }
+    
+    printf("\n=== Memory System Tests Completed ===\n");
+    printf("Kernel is now running in an infinite loop...\n");
+    
+}
 /*
  * 页表操作辅助函数
  */
