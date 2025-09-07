@@ -3,7 +3,7 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
-#include "proc.h"
+#include "proc/proc.h"
 #include "syscall.h"
 #include "defs.h"
 
@@ -80,34 +80,34 @@ argstr(int n, char *buf, int max)
 }
 
 // Prototypes for the functions that handle system calls.
-extern uint64 sys_fork(void);
-extern uint64 sys_exit(void);
-extern uint64 sys_wait(void);
-extern uint64 sys_kill(void);
-extern uint64 sys_getpid(void);
-extern uint64 sys_sbrk(void);
-extern uint64 sys_sleep(void);
-extern uint64 sys_uptime(void);
-extern uint64 sys_shutdown(void);
-extern uint64 sys_gettimeofday(void);
-extern uint64 sys_read(void);
-extern uint64 sys_write(void);
+// extern uint64 sys_fork(void);
+// extern uint64 sys_exit(void);
+// extern uint64 sys_wait(void);
+// extern uint64 sys_kill(void);
+// extern uint64 sys_getpid(void);
+// extern uint64 sys_sbrk(void);
+// extern uint64 sys_sleep(void);
+// extern uint64 sys_uptime(void);
+// extern uint64 sys_shutdown(void);
+// extern uint64 sys_gettimeofday(void);
+// extern uint64 sys_read(void);
+// extern uint64 sys_write(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
-[SYS_fork]    sys_fork,
-[SYS_exit]    sys_exit,
-[SYS_wait]    sys_wait,
-[SYS_read]    sys_read,
-[SYS_write]   sys_write,
-[SYS_kill]    sys_kill,
-[SYS_getpid]  sys_getpid,
-[SYS_sbrk]    sys_sbrk,
-[SYS_sleep]   sys_sleep,
-[SYS_uptime]  sys_uptime,
-[SYS_shutdown] sys_shutdown,
-[SYS_gettimeofday] sys_gettimeofday,
+// [SYS_fork]    sys_fork,
+// [SYS_exit]    sys_exit,
+// [SYS_wait]    sys_wait,
+// [SYS_read]    sys_read,
+// [SYS_write]   sys_write,
+// [SYS_kill]    sys_kill,
+// [SYS_getpid]  sys_getpid,
+// [SYS_sbrk]    sys_sbrk,
+// [SYS_sleep]   sys_sleep,
+// [SYS_uptime]  sys_uptime,
+// [SYS_shutdown] sys_shutdown,
+// [SYS_gettimeofday] sys_gettimeofday,
 };
 
 void

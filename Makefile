@@ -8,7 +8,7 @@ NPROC := $(shell nproc)
 MAKEFLAGS += -j$(NPROC)
 
 # ===== 路径定义 =====
-SRC_DIRS := boot devs lib mm proc sync syscall trap
+SRC_DIRS := boot devs lib mm sync trap
 BUILD_DIR := build
 
 # ===== 文件收集规则 =====
@@ -87,43 +87,11 @@ $(BUILD_DIR)/%.o: $(SRC)/%.S
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
 
-# 特殊处理 initcode.S，使其依赖于 user/initcode
-$(BUILD_DIR)/boot/initcode.o: $(SRC)/boot/initcode.S $U/initcode
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
-
-$K/kernel: dirs $(ENTRY_OBJ) $(OBJS_NO_ENTRY) $(SRC)/linker/kernel.ld $U/initcode.bin
+$K/kernel: dirs $(ENTRY_OBJ) $(OBJS_NO_ENTRY) $(SRC)/linker/kernel.ld
 	@mkdir -p $K
 	$(LD) $(LDFLAGS) -T $(SRC)/linker/kernel.ld -o $K/kernel $(ENTRY_OBJ) $(OBJS_NO_ENTRY)
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
-
-# ===== User 程序编译规则 =====
-# 生成系统调用汇编文件
-$U/usys.S: $U/usys.pl
-	perl $U/usys.pl > $U/usys.S
-
-# 编译系统调用汇编文件
-$U/usys.o: $U/usys.S
-	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
-
-# 编译 initcode.c 为 ELF 文件
-$U/initcode.o: $U/initcode.c $U/user.h
-	$(CC) $(CFLAGS) -march=rv64g -nostdinc -I. -I$(SRC) -c $U/initcode.c -o $U/initcode.o
-
-# 编译 printf.c 为 ELF 文件
-$U/printf.o: $U/printf.c $U/user.h
-	$(CC) $(CFLAGS) -march=rv64g -I. -I$(SRC) -c $U/printf.c -o $U/printf.o
-
-# 链接生成 initcode ELF 文件
-$U/initcode: $U/initcode.o $U/usys.o $U/printf.o $U/user-riscv.ld
-	$(LD) $(LDFLAGS) -T $U/user-riscv.ld -o $U/initcode $U/initcode.o $U/usys.o $U/printf.o
-	$(OBJDUMP) -S $U/initcode > $U/initcode.asm
-	$(OBJDUMP) -t $U/initcode | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $U/initcode.sym
-
-# 从 ELF 文件生成二进制文件
-$U/initcode.bin: $U/initcode
-	$(OBJCOPY) -S -O binary $< $@
 
 tags: $(OBJS) _init
 	etags *.S *.c
@@ -148,9 +116,6 @@ clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	$K/kernel fs.img \
 	mkfs/mkfs .gdbinit
-	rm -f $U/initcode $U/initcode.o $U/initcode.asm $U/initcode.sym $U/initcode.d $U/initcode.bin
-	rm -f $U/usys.S $U/usys.o $U/usys.d
-	rm -f $U/printf.o $U/printf.d
 	rm -rf $(BUILD_DIR)
 
 # try to generate a unique GDB port

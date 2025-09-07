@@ -55,7 +55,7 @@ start()
   w_tp(id);
 
   // 切换到管理者模式并跳转到main()函数
-  asm volatile("mret");
+  main();
 }
 
 // 安排接收定时器中断
