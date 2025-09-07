@@ -3,4 +3,5 @@
 int main(){
     printf("Hello, World!\n");
     shutdown();
+    return 0;
 }
