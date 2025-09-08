@@ -276,6 +276,7 @@ clockintr()
 int
 devintr()
 {
+  printf("devintr: scause %p\n", r_scause());
   uint64 scause = r_scause();
 
   // 检查是否是外部中断
