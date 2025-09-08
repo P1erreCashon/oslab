@@ -95,7 +95,6 @@ uartputc(int c)
   while(uart_tx_w == uart_tx_r + UART_TX_BUF_SIZE){
     // buffer is full.
     // wait for uartstart() to open up space in the buffer.
-    sleep(&uart_tx_r, &uart_tx_lock);
   }
   uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE] = c;
   uart_tx_w += 1;
@@ -150,8 +149,7 @@ uartstart()
     uart_tx_r += 1;
     
     // maybe uartputc() is waiting for space in the buffer.
-    wakeup(&uart_tx_r);
-    
+
     WriteReg(THR, c);
   }
 }
@@ -172,19 +170,19 @@ uartgetc(void)
 // handle a uart interrupt, raised because input has
 // arrived, or the uart is ready for more output, or
 // both. called from devintr().
-void
-uartintr(void)
-{
-  // read and process incoming characters.
-  while(1){
-    int c = uartgetc();
-    if(c == -1)
-      break;
-    consoleintr(c);
-  }
+// void
+// uartintr(void)
+// {
+//   // read and process incoming characters.
+//   while(1){
+//     int c = uartgetc();
+//     if(c == -1)
+//       break;
+//     consoleintr(c);
+//   }
 
-  // send buffered characters.
-  acquire(&uart_tx_lock);
-  uartstart();
-  release(&uart_tx_lock);
-}
+//   // send buffered characters.
+//   acquire(&uart_tx_lock);
+//   uartstart();
+//   release(&uart_tx_lock);
+// }

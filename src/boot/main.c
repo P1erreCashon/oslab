@@ -19,7 +19,7 @@ main()
     kinit();             // 物理页面分配器初始化
     kvminit();           // 创建内核页表
     kvminithart();       // 开启分页机制
-    procinit();          // 进程表初始化
+
     trapinit();          // 陷阱向量初始化
     trapinithart();      // 安装内核陷阱向量
     plicinit();          // 设置中断控制器

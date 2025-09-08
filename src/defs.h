@@ -10,8 +10,6 @@ struct stat;
 void            consoleinit(void);
 void            consoleintr(int);
 void            consputc(int);
-int             consoleread(int user_dst, uint64 dst, int n);
-int             consolewrite(int user_src, uint64 src, int n);
 
 // kalloc.c
 void*           kalloc(void);
