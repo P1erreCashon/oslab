@@ -94,6 +94,10 @@ elf_error_t elf_load_segment(struct program_header *ph, char *elf_data) {
     uart_put_hex(ph->p_memsz);
     uart_puts("\n");
     
+    uart_puts("File offset: ");
+    uart_put_hex(ph->p_offset);
+    uart_puts("\n");
+    
     // 检查地址合理性
     if (ph->p_vaddr < 0x80000000 || ph->p_vaddr >= 0x88000000) {
         uart_puts("WARNING: Segment address outside expected range\n");
@@ -104,6 +108,18 @@ elf_error_t elf_load_segment(struct program_header *ph, char *elf_data) {
     char *src = elf_data + ph->p_offset;
     
     uint64 copy_size = ph->p_filesz;
+    
+    // 关键调试：检查源数据
+    uart_puts("Source data check - first 16 bytes at offset ");
+    uart_put_hex(ph->p_offset);
+    uart_puts(":\n");
+    
+    uint32 *src_words = (uint32 *)src;
+    for (int i = 0; i < 4; i++) {
+        uart_put_hex(src_words[i]);
+        uart_puts(" ");
+    }
+    uart_puts("\n");
     
     uart_puts("Copying ");
     uart_put_hex(copy_size);

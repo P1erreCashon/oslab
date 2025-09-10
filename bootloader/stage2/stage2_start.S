@@ -2,8 +2,8 @@
 .global _start
 
 _start:
-    # 设置第二阶段栈 - 使用新的栈地址
-    li sp, 0x80030000
+    # 设置第二阶段栈 - 使用专用栈区域，不要覆盖代码区域
+    li sp, 0x80040000
     
     # 调用C主函数
     jal ra, bootloader_main

@@ -2,8 +2,8 @@
 .global _start
 
 _start:
-    # 设置栈指针
-    li sp, 0x80000000
+    # 设置栈指针 - 使用专用栈区域，不要覆盖内核地址
+    li sp, 0x80040000
     
     # UART基地址 (QEMU virt machine)
     li t0, 0x10000000

@@ -142,8 +142,8 @@ void bootloader_main(void) {
     
     uart_puts("Loading kernel from disk...\n");
     
-    // 分配内核缓冲区 - 需要足够大来加载整个内核
-    char *kernel_buf = (char *)BOOTLOADER_BUFFER;
+    // 分配内核缓冲区 - 使用安全的地址，远离内核加载区域
+    char *kernel_buf = (char *)0x80068000;  // 在BOOTLOADER_BUFFER + 32KB，安全区域
     const int max_kernel_sectors = 16; // 先读较少扇区进行测试
     
     uart_puts("Reading kernel ELF (");
@@ -166,16 +166,17 @@ void bootloader_main(void) {
             uart_putc('.');
         }
         
+        // 注释掉早期终止逻辑 - 它导致代码段没有被读取！
         // 早期检查ELF魔数，如果已经读到完整头部就可以提前判断
-        if (i >= 2) { // 至少读了1KB，足够ELF头
-            struct elf_header *elf = (struct elf_header *)kernel_buf;
-            if (elf->e_magic == ELF_MAGIC && i >= (elf->e_phoff + elf->e_phnum * elf->e_phentsize) / SECTOR_SIZE) {
-                uart_puts("\nEarly termination: read enough for ELF (");
-                uart_put_dec(i + 1);
-                uart_puts(" sectors)\n");
-                break;
-            }
-        }
+        // if (i >= 2) { // 至少读了1KB，足够ELF头
+        //     struct elf_header *elf = (struct elf_header *)kernel_buf;
+        //     if (elf->e_magic == ELF_MAGIC && i >= (elf->e_phoff + elf->e_phnum * elf->e_phentsize) / SECTOR_SIZE) {
+        //         uart_puts("\nEarly termination: read enough for ELF (");
+        //         uart_put_dec(i + 1);
+        //         uart_puts(" sectors)\n");
+        //         break;
+        //     }
+        // }
     }
     
     uart_puts("\n");
@@ -209,6 +210,25 @@ void bootloader_main(void) {
         uart_puts("\n");
         goto error;
     }
+    
+    // === CRITICAL DEBUGGING: 验证ELF加载是否真的成功 ===
+    uart_puts("=== IMMEDIATE KERNEL VERIFICATION ===\n");
+    uint32 *kernel_start_immediate = (uint32 *)0x80000000;
+    uart_puts("RIGHT after elf_load_kernel() - First instruction: ");
+    uart_put_hex(*kernel_start_immediate);
+    uart_puts("\n");
+    uart_puts("Entry point from ELF: ");
+    uart_put_hex(load_info.entry_point);
+    uart_puts("\n");
+    uart_puts("Load base: ");
+    uart_put_hex(load_info.load_base); 
+    uart_puts("\n");
+    
+    // 验证内核代码是否正确加载
+    uint32 *kernel_start_check = (uint32 *)load_info.entry_point;
+    uart_puts("After ELF loading - Kernel first instruction: ");
+    uart_put_hex(*kernel_start_check);
+    uart_puts("\n");
     
     // 设置引导信息中的内核参数
     uart_puts("[BEFORE setup] Magic: ");
@@ -259,14 +279,32 @@ void bootloader_main(void) {
     uart_put_hex(dtb_ptr);
     uart_puts("\n");
     
-    // 设置临时栈并跳转到内核
+    // 检查当前特权级
+    uint64 current_mode;
+    asm volatile("csrr %0, mstatus" : "=r"(current_mode));
+    uart_puts("Current privilege level (mstatus): ");
+    uart_put_hex(current_mode);
+    uart_puts("\n");
+    
+    // 检查内核第一条指令
+    uint32 *kernel_start = (uint32 *)load_info.entry_point;
+    uart_puts("Kernel first instruction: ");
+    uart_put_hex(*kernel_start);
+    uart_puts("\n");
+    
+    // 内存屏障和缓存刷新
+    asm volatile("fence" ::: "memory");
+    asm volatile("fence.i" ::: "memory");
+    
+    uart_puts("\n");
+    
+    // 跳转到内核 - 让内核自己设置栈，我们只传递参数
     asm volatile(
-        "li sp, %2\n"                   // 设置临时栈指针
         "mv a0, %0\n"                   // hart ID
-        "mv a1, %1\n"                   // boot info pointer
-        "jr %3\n"                       // 跳转到内核入口点
+        "mv a1, %1\n"                   // boot info pointer  
+        "jr %2\n"                       // 跳转到内核入口点
         :
-        : "r"(hart_id), "r"(dtb_ptr), "i"(0x80030000), "r"(load_info.entry_point)
+        : "r"(hart_id), "r"(dtb_ptr), "r"(load_info.entry_point)
         : "a0", "a1"
     );
     
