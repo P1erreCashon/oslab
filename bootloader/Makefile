@@ -65,10 +65,6 @@ bootdisk_stage3.img: stage1.bin stage2.bin ../kernel/kernel ../fs.img
 %.o: %.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# 兼容性目标 (保持与第一阶段的兼容)
-boot.bin: stage1.bin
-	cp stage1.bin boot.bin
-
 # 测试目标
 test: bootdisk_stage2.img
 	@echo "=== Testing bootloader stage 2 ==="
