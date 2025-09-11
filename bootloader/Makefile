@@ -124,5 +124,7 @@ clean:
 	rm -f common/*.o
 	rm -f test/*.o test/*.elf test/*.bin
 	rm -f *.img *.d boot.bin
+	rm -f stage1.bin stage1.elf stage2.bin stage2.elf
+	rm -f bootdisk_stage3.img boot.elf
 
 .PHONY: test debug clean disasm-stage1 disasm-stage2 hexdump-stage1 hexdump-stage2 inspect-disk
