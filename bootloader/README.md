@@ -32,7 +32,6 @@ bootloader/
 ├── common/          # 公共库和驱动
 ├── stage1/          # 第一阶段引导程序 (≤512字节)
 ├── stage2/          # 第二阶段引导程序 (VirtIO + ELF加载)
-├── test/            # 测试脚本和内核
 ├── doc/             # 详细文档
 ├── README.md        # 从零构建指南 (本文档)
 ├── ARCHITECTURE.md  # 技术架构文档
