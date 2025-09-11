@@ -16,8 +16,7 @@ cd /home/xv6/Desktop/code/oslab/bootloader
 make clean && make bootdisk_stage3.img
 
 # 启动系统
-timeout 15 qemu-system-riscv64 \
-    -machine virt -cpu rv64 -bios none \
+qemu-system-riscv64 -machine virt -cpu rv64 -bios none \
     -kernel stage1.bin \
     -device loader,addr=0x80030000,file=stage2.bin \
     -global virtio-mmio.force-legacy=false \
@@ -108,14 +107,11 @@ make bootdisk_stage3.img
 
 成功标识：`Stage 3 bootdisk image created: bootdisk_stage3.img`
 
-### 第七步：运行你的操作系统！
-
-现在是激动人心的时刻：
+### 第七步：启动虚拟机
 
 ```bash
 # 启动完整的操作系统
-timeout 15 qemu-system-riscv64 \
-    -machine virt -cpu rv64 -bios none \
+qemu-system-riscv64 -machine virt -cpu rv64 -bios none \
     -kernel stage1.bin \
     -device loader,addr=0x80030000,file=stage2.bin \
     -global virtio-mmio.force-legacy=false \
@@ -124,59 +120,28 @@ timeout 15 qemu-system-riscv64 \
     -m 128M -smp 1 -nographic
 ```
 
-**预期输出**：
+**启动成功输出**：
+```
+BOOT
+Stage2: Starting VirtIO initialization
+Stage2: Attempting to load kernel from disk...
+Stage2: Successfully loaded and started xv6 kernel
+xv6 kernel is booting
 
-1. **Stage1启动**：
-```
-BOOT        <- Stage1启动标识
-LDG2        <- Stage1加载Stage2完成
-```
-
-2. **Stage2工作过程**：
-```
-=== Bootloader Stage 2 ===
-Stage 2 started successfully!
-Error handling system initialized
-=== Memory Layout Validation ===
-Memory layout validation: PASSED
+hart 0 starting
+hart 1 starting  
+hart 2 starting
+init: starting sh
+$ 
 ```
 
-3. **VirtIO驱动初始化**：
-```
-Scanning for virtio block devices...
-Found virtio block device at 0x10001000
-Virtio disk initialized successfully!
-```
+看到 `$ ` 提示符后，你可以输入xv6命令：
+- `ls` - 列出文件
+- `cat README` - 查看文件内容  
+- `echo hello` - 输出文本
+- `usertests` - 运行测试
 
-4. **硬件检测**：
-```
-Detecting hardware platform...
-Hardware platform detected: QEMU virt
-=== Hardware Information ===
-Platform: QEMU virt
-Memory: 0x80000000 (128 MB)
-```
-
-5. **内核加载**：
-```
-Loading kernel from disk...
-=== ELF Kernel Loader ===
-Valid ELF file detected
-Entry point: 0x80000000
-Kernel loaded successfully
-```
-
-6. **成功跳转**：
-```
-=== JUMPING TO KERNEL ===
->>>>>>> BOOTLOADER HANDOFF TO KERNEL <<<<<<<
-Entry point: 0x80000000
-Goodbye from bootloader!
-```
-
-### 🎉 成功！
-
-如果你看到上述输出，恭喜！你已经成功构建并运行了一个完整的RISC-V操作系统。
+**退出QEMU**：按 `Ctrl+A` 然后按 `x`
 
 ## 构建命令总结
 
@@ -197,36 +162,11 @@ make kernel/kernel   # 内核
 make fs.img          # 文件系统
 
 # 4. 打包引导镜像
-### 第七步：启动虚拟机
+cd bootloader
+make bootdisk_stage3.img
 
-```bash
-qemu-system-riscv64 \
-    -machine virt \
-    -smp 3 \
-    -m 128M \
-    -bios none \
-    -drive file=bootdisk_stage3.img,format=raw,if=virtio \
-    -netdev user,id=net0 \
-    -device virtio-net-device,netdev=net0 \
-    -nographic
+# 5. 运行系统 - 使用第七步中的完整命令
 ```
-
-**启动成功输出**：
-```
-BOOT
-Stage2: Starting VirtIO initialization
-Stage2: Attempting to load kernel from disk...
-Stage2: Successfully loaded and started xv6 kernel
-xv6 kernel is booting
-
-hart 0 starting
-hart 1 starting  
-hart 2 starting
-init: starting sh
-$ 
-```
-
-**退出QEMU**：按 `Ctrl+A` 然后按 `x`
 
 ## 架构说明
 
