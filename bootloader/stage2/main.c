@@ -297,6 +297,12 @@ void bootloader_main(void) {
     asm volatile("fence.i" ::: "memory");
     
     uart_puts("\n");
+    uart_puts(">>>>>>> BOOTLOADER HANDOFF TO KERNEL <<<<<<<\n");
+    uart_puts("Entry point: ");
+    uart_put_hex(load_info.entry_point);
+    uart_puts("\n");
+    uart_puts("Goodbye from bootloader!\n");
+    uart_puts("==========================================\n\n");
     
     // 跳转到内核 - 让内核自己设置栈，我们只传递参数
     asm volatile(
