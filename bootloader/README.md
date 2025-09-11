@@ -123,17 +123,35 @@ qemu-system-riscv64 -machine virt -cpu rv64 -bios none \
 **启动成功输出**：
 ```
 BOOT
-Stage2: Starting VirtIO initialization
-Stage2: Attempting to load kernel from disk...
-Stage2: Successfully loaded and started xv6 kernel
+LDG2
+
+=== Bootloader Stage 2 ===
+Stage 2 started successfully!
+...
+=== JUMPING TO KERNEL ===
+Setting up kernel boot environment...
+Hart ID: 0
+Boot Info Address: 0x80040000
+>>>>>>> BOOTLOADER HANDOFF TO KERNEL <<<<<<<
+Entry point: 0x80000000
+Goodbye from bootloader!
+==========================================
+
+KERNEL: start() function entered!
+KERNEL: We are in machine mode  
+KERNEL: main() entered in supervisor mode!
+
 xv6 kernel is booting
 
 hart 0 starting
-hart 1 starting  
-hart 2 starting
 init: starting sh
 $ 
 ```
+
+**注意事项**：
+- 如果内核加载后没有继续输出，尝试按回车键激活终端
+- 系统启动可能需要几秒钟时间
+- 确保在bootloader目录中运行命令
 
 看到 `$ ` 提示符后，你可以输入xv6命令：
 - `ls` - 列出文件
