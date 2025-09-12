@@ -5,6 +5,8 @@ _*
 *.asm
 *.sym
 *.img
+*.elf
+*.bin
 vectors.S
 bootblock
 entryother
@@ -15,7 +17,4 @@ mkfs
 kernel/kernel
 user/usys.S
 .gdbinit
-.env
-*.elf
-*.bin
-.github
+
