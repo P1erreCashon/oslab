@@ -13,8 +13,8 @@ entryother
 initcode
 initcode.out
 kernelmemfs
-mkfs
 kernel/kernel
 user/usys.S
 .gdbinit
-
+mkfs/mkfs
+.vscode/
