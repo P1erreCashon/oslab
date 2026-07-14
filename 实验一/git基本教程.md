@@ -63,3 +63,7 @@
 ![git9](./images/git9.png)
 
 ![git10](./images/git10.png)
+
+然后点击这里将本地仓库的新增内容上传到远程仓库中：
+
+![git11](./images/git11.png)
