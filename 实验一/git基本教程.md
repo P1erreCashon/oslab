@@ -59,3 +59,7 @@
 ![git8](./images/git8.png)
 
 然后在这里填写你对这次 commit 的描述，然后点击提交，当前更改就保存（git commit）到了本地仓库：
+
+![git9](./images/git9.png)
+
+![git10](./images/git10.png)
