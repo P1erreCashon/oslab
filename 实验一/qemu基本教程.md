@@ -13,11 +13,11 @@ QEMU是一款开源的虚拟机软件，能够模拟多种不同的硬件平台�
 将你的内核编译之后，会产生一个可执行文件（也叫ELF文件）。假如你的内核可执行文件叫KERNEL_ELF，那么你就可以用以下指令启动QEMU并加载你的内核可执行文件开始运行。
 
 bash
-``
+```
 qemu-system-riscv64 \
   -machine virt -bios none -kernel KERNEL_ELF \
-  -m 128M -smp 1 -nographic \
-``
+  -m 128M -smp 1 -nographic
+```
 其中，-machine virt表示将模拟的RISC-V 计算机设置为名为 virt 的虚拟计算机。-bios none表示不使用bios。-kernel KERNEL_ELF表示加载文件名为KERNEL_ELF的可执行文件作为内核。-m 128M表示使用大小为128M的物理内存（你们可以认为是内存条大小）。-smp 1表示使用单核CPU。-nographic表示模拟器只对外输出字符流，不提供图形界面。
 
 后续实验中你会需要对这个指令进行扩展，让QEMU启动时包含PCI和块设备。
@@ -28,7 +28,11 @@ QEMU启动后，使用gdb打印所有寄存器状态就可以查看QEMU启动时
 的寄存器状态是什么样的。可以看到，除了pc是0x1000、mhartid寄存器的值
 是当前的hartid,其他寄存器的初始值都是0。
 
-image
+![qemu3](./images/qemu3.png)
+
+![qemu1](./images/qemu1.png)
+
+![qemu2](./images/qemu2.png)
 
 
 ## QEMU启动流程
